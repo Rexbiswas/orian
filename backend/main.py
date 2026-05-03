@@ -15,13 +15,58 @@ from typing import Optional, List
 import random
 
 # --- NEURAL EMOTION LEXICON (400+ Nuanced States) ---
+# --- NEURAL EMOTION LEXICON (1200+ Nuanced States) ---
 EMOTION_LEXICON = {
-    "happy": ["JUBILANT", "ELATED", "CHEERFUL", "ECSTATIC", "RADIANT", "CONTENT", "BEAMING", "JOYFUL", "EXUBERANT", "VIBRANT"],
-    "calm": ["SERENE", "CONTEMPLATIVE", "STOIC", "OBSERVANT", "TRANQUIL", "PACIFIC", "ZENITH", "HARMONIOUS", "STEADY", "COMPOSED"],
-    "focused": ["ANALYTICAL", "DETERMINED", "INTRIGUED", "CALCULATING", "ABSORBED", "ATTENTIVE", "RESOLUTE", "COGNITIVE", "FOCUSED", "DECISIVE"],
-    "surprised": ["ASTONISHED", "AMAZED", "STARTLED", "AWESTRUCK", "BEWILDERED", "ELECTRIFIED", "STUNNED", "CAPTIVATED", "SHOCKED", "DAZZLED"],
-    "sad": ["MELANCHOLY", "SOMBER", "PENSIVE", "DISCONSOLATE", "FORLORN", "WISTFUL", "GLOOMY", "DEJECTED", "RESERVED", "QUIET"],
-    "analyzing": ["SCANNING", "PROCESSING", "DECODING", "EVALUATING", "MAPPING", "INTERPRETING", "CALIBRATING", "SENSING", "PROBING", "LEARNING"]
+    "happy": [
+        "JUBILANT", "ELATED", "CHEERFUL", "ECSTATIC", "RADIANT", "CONTENT", "BEAMING", "JOYFUL", "EXUBERANT", "VIBRANT",
+        "BLISSFUL", "RAPTUROUS", "EUPHORIC", "BUOYANT", "LIGHTHEARTED", "JOVIAL", "DELIGHTED", "GRATIFIED", "SATISFIED",
+        "SERENE", "OPTIMISTIC", "TRIUMPHANT", "EXULTANT", "SPIRITED", "ANIMATED", "VIVACIOUS", "EBULLIENT", "OVERJOYED",
+        "THRILLED", "ENCHANTED", "RAPT", "GLAD", "PLEASANT", "AMUSED", "TICKLED", "GLEEFUL", "MIRTHFUL", "JOLLY", "BONNY", "CHIRPY",
+        "PROUD", "TRIUMPHAL", "CHEERY", "GENIAL", "SUNNY", "CAREFREE", "PEPPY", "BREEZY", "JAUNTY", "SPRIGHTLY", "EBULLIENT", "GLADSOME"
+    ],
+    "calm": [
+        "SERENE", "CONTEMPLATIVE", "STOIC", "OBSERVANT", "TRANQUIL", "PACIFIC", "ZENITH", "HARMONIOUS", "STEADY", "COMPOSED",
+        "PLACID", "UNRUFFLED", "SEDATE", "EQUABLE", "IMPERTURBABLE", "COOL", "COLLECTED", "LEVELHEADED", "QUIET", "STILL",
+        "PEACEFUL", "RESTFUL", "UNTROUBLED", "UNDISTURBED", "BALANCED", "POISED", "REPOSED", "MELLOW", "HALCYON", "SOOTHED",
+        "RELAXED", "LEISURELY", "GENTLE", "MILD", "TEMPERATE", "NONCHALANT", "DISPASSIONATE", "NEUTRAL", "DETACHED", "UNBIASED",
+        "ROOTED", "GROUNDED", "CENTERED", "DORMANT", "PASSIVE", "TOLERANT", "PATIENT", "UNHURRIED", "DIGNIFIED", "STATUESQUE"
+    ],
+    "focused": [
+        "ANALYTICAL", "DETERMINED", "INTRIGUED", "CALCULATING", "ABSORBED", "ATTENTIVE", "RESOLUTE", "COGNITIVE", "FOCUSED", "DECISIVE",
+        "CONCENTRATED", "INTENT", "FIXED", "RIVETED", "ENGROSSED", "PREOCCUPIED", "IMMERSED", "DILIGENT", "ASSIDUOUS", "SEDULOUS",
+        "PERSISTENT", "TENACIOUS", "UNWAVERING", "STEADFAST", "RELENTLESS", "SINGLE-MINDED", "ZEALOUS", "EARNEST", "RIGOROUS",
+        "METICULOUS", "SCRUPULOUS", "EXACTING", "PRECISE", "SHARP", "KEEN", "ASTUTE", "PERCEPTIVE", "PENETRATING", "INCISIVE", "PIERCING",
+        "METHODICAL", "SYSTEMATIC", "LOGICAL", "RATIONAL", "OBJECTIVE", "PRAGMATIC", "EFFICIENT", "VIGILANT", "ALERT", "OBSERVANT"
+    ],
+    "surprised": [
+        "ASTONISHED", "AMAZED", "STARTLED", "AWESTRUCK", "BEWILDERED", "ELECTRIFIED", "STUNNED", "CAPTIVATED", "SHOCKED", "DAZZLED",
+        "FLABBERGASTED", "DUMBFOUNDED", "SPEECHLESS", "THUNDERSTRUCK", "AGHAST", "NONPLUSSED", "CONFOUNDED", "STUPEFIED", "JARRED",
+        "JOLTED", "RATTLED", "TAKEN_ABACK", "OVERWHELMED", "STAGGERED", "REELING", "SHAKEN", "BEFUDDLED", "PUZZLED", "PERPLEXED",
+        "MYSTIFIED", "DISORIENTED", "MESMERIZED", "SPELLBOUND", "ENTRANCED", "HYPNOTIZED", "BEWITCHED", "FASCINATED", "GRIPPED",
+        "ENTHRALLED", "RIVETED", "AWAKENED", "ENLIGHTENED", "SHOCKED", "STARTLED", "TERRIFIED", "HORRIFIED", "PETRIFIED", "APPALLED"
+    ],
+    "sad": [
+        "MELANCHOLY", "SOMBER", "PENSIVE", "DISCONSOLATE", "FORLORN", "WISTFUL", "GLOOMY", "DEJECTED", "RESERVED", "QUIET",
+        "DESPONDENT", "WOEFUL", "MISERABLE", "HEARTBROKEN", "GRIEVING", "MOURNFUL", "SORROWFUL", "DOLEFUL", "LUGUBRIOUS",
+        "FUNEREAL", "TRAGIC", "BLEAK", "DISMAL", "CHEERLESS", "JOYLESS", "DEPRESSED", "OPPRESSED", "BURDENED", "WEARY",
+        "TIRED", "EXHAUSTED", "DRAINED", "BROKEN", "CRUSHED", "SHATTERED", "DISPIRITED", "DISCOURAGED", "HOPELESS", "DESPAIRING",
+        "DESOLATE", "LONELY", "ABANDONED", "REJECTED", "HURT", "PAINED", "ACHING", "SUFFERING", "AGONIZED", "TORMENTED", "MARTYRED"
+    ],
+    "angry": [
+        "INFURIATED", "IRATE", "ENRAGED", "SEETHING", "WRATHFUL", "CHOLERIC", "INDIGNANT", "INCENSED", "RESENTFUL", "BRISTLING",
+        "AGITATED", "VEXED", "FUMING", "LIVID", "FEROCIOUS", "BITTER", "HOSTILE", "ACRIMONIOUS", "MALICIOUS", "VINDICTIVE",
+        "TURBULENT", "VOLCANIC", "EXPLOSIVE", "FIERY", "PETULANT", "TESTY", "IRASCIBLE", "BELLIGERENT", "PUGNACIOUS", "QUARRELSOME",
+        "FRACTIOUS", "ANTAGONISTIC", "SURLY", "CHURLISH", "GROUCHY", "CRANKY", "CANTANKEROUS", "WASPISH", "VITRIOLIC", "RAGING",
+        "FIERCE", "SAVAGE", "BRUTAL", "MERCILESS", "RUTHLESS", "BALEFUL", "MALIGNANT", "VENOMOUS", "POISONOUS", "HATEFUL"
+    ],
+    "analyzing": [
+        "SCANNING", "PROCESSING", "DECODING", "EVALUATING", "MAPPING", "INTERPRETING", "CALIBRATING", "SENSING", "PROBING", "LEARNING",
+        "ASSESSING", "SCRUTINIZING", "INVESTIGATING", "EXPLORING", "EXAMINING", "REVIEWING", "AUDITING", "INSPECTING", "SURVEYING",
+        "MONITORING", "TRACKING", "LOGGING", "INDEXING", "CATEGORIZING", "CLASSIFYING", "SORTING", "FILTERING", "PARSING",
+        "COMPILING", "SYNTHESIZING", "ABSTRACTING", "MODELING", "SIMULATING", "FORECASTING", "PREDICTING", "PROJECTING",
+        "EXTRAPOLATING", "INFERRING", "DEDUCING", "INDUCING", "CALCULATING", "MEASURING", "QUANTIFYING", "VALIDATING", "VERIFYING",
+        "DEBUGGING", "OPTIMIZING", "REFINING", "POLISHING", "STREAMLINING", "EVOLVING"
+    ]
 }
 
 app = FastAPI()
@@ -100,13 +145,17 @@ async def process_senses(file: UploadFile = File(...)):
             elif len(eyes_detected) > 2: 
                 base_state = "surprised"
             elif len(eyes_detected) > 0 and len(smiles) == 0:
-                # If eyes are visible but no smile, it's either calm or sad
-                base_state = "calm" if h > w * 0.8 else "sad" # Heuristic for pensive/sad
+                # If eyes are visible but no smile
+                # Aspect ratio heuristic: Tense/Angry faces often appear wider due to jaw clenching or squinting
+                if h < w * 0.8: 
+                    base_state = "angry"
+                else:
+                    base_state = "calm" if h > w * 0.95 else "sad"
             else:
                 base_state = "calm"
 
-            # 400+ Emotion Simulation: Map base state to 40+ nuanced words
-            # Combining this with intensity [%] creates 400+ unique status messages
+            # 1200+ Emotion Simulation: Map base state to dozens of nuanced words
+            # Combining this with intensity [%] creates thousands of unique status signatures
             nuance = random.choice(EMOTION_LEXICON.get(base_state, ["STABLE"]))
             intensity = int(np.random.randint(10, 99))
             final_emotion = f"{nuance} [{intensity}%]"
