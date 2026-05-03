@@ -45,74 +45,79 @@ const NeuralLog = () => {
   };
 
   return (
-    <AnimatePresence>
-      {isLogOpen && (
-        <Motion.div 
-          drag
-          dragMomentum={false}
-          initial={{ opacity: 0, scale: 0.9, x: -20, filter: "blur(10px)" }}
-          animate={{ opacity: 1, scale: 1, x: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, scale: 0.9, x: -20, filter: "blur(10px)" }}
-          className="w-64 h-80 glass-morphism rounded-2xl flex flex-col overflow-hidden border border-brand-cyan/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-default active:cursor-grabbing z-[100]"
+    <Motion.div 
+      drag
+      dragMomentum={false}
+      className="w-72 h-64 glass-morphism rounded-2xl flex flex-col overflow-hidden border border-brand-cyan/20 shadow-[0_0_40px_rgba(0,0,0,0.6)] cursor-default active:cursor-grabbing z-[100]"
+    >
+      {/* Header / Drag Handle */}
+      <div className="px-3 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between group/header">
+        <div className="flex items-center gap-2">
+          <GripHorizontal size={12} className="text-slate-600 group-hover/header:text-brand-cyan transition-colors" />
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Telemetry_Stream</span>
+        </div>
+        <button 
+          onClick={() => setIsLogOpen(false)}
+          className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-red-400 transition-all"
         >
-          {/* Header / Drag Handle */}
-          <div className="px-4 py-3 border-b border-white/5 bg-white/5 flex items-center justify-between group/header">
-            <div className="flex items-center gap-2">
-              <GripHorizontal size={14} className="text-slate-600 group-hover/header:text-brand-cyan transition-colors" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Neural_Telemetry</span>
-            </div>
-            <button 
-              onClick={() => setIsLogOpen(false)}
-              className="p-1 hover:bg-white/10 rounded-md text-slate-500 hover:text-red-400 transition-all"
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Log Entries */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar font-mono">
+        <AnimatePresence initial={false} mode="popLayout">
+          {logs.map((log) => (
+            <Motion.div
+              key={log.id}
+              layout
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 500, damping: 40 }}
+              className="flex flex-col gap-1.5 border-l-2 border-brand-cyan/20 pl-3 py-1.5 hover:bg-white/5 transition-all group rounded-r-lg"
             >
-              <X size={14} />
-            </button>
-          </div>
-
-          {/* Log Entries */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar font-mono text-[9px]">
-            <AnimatePresence initial={false}>
-              {logs.map((log) => (
-                <Motion.div
-                  key={log.id}
-                  initial={{ opacity: 0, x: -20, height: 0 }}
-                  animate={{ opacity: 1, x: 0, height: 'auto' }}
-                  className="flex flex-col gap-1 border-l border-white/10 pl-2 py-1 hover:bg-white/5 transition-colors group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-600">[{log.timestamp}]</span>
-                      <span className={`${getStatusColor(log.status)} font-bold`}>{log.type}</span>
-                    </div>
-                    <div className="text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {getTypeIcon(log.type)}
-                    </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-bold text-slate-600 tabular-nums">[{log.timestamp}]</span>
+                  <div className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter bg-white/5 ${getStatusColor(log.status)}`}>
+                    {log.type}
                   </div>
-                  <div className="text-slate-400 leading-tight">
-                    {log.message}
-                  </div>
-                </Motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                </div>
+                <div className="text-slate-600 opacity-20 group-hover:opacity-100 transition-opacity">
+                  {getTypeIcon(log.type)}
+                </div>
+              </div>
+              <div className="text-[10px] text-slate-300 leading-normal font-medium tracking-tight break-words">
+                {log.message}
+              </div>
+            </Motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
-          {/* Footer */}
-          <div className="px-3 py-2 border-t border-white/5 bg-black/20 flex items-center justify-between">
-            <div className="text-[7px] text-slate-600 font-bold uppercase tracking-widest">Buffer_Active</div>
-            <div className="flex gap-1">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Motion.div 
-                  key={i}
-                  animate={{ opacity: [0.2, 1, 0.2] }}
-                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                  className="w-1.5 h-1.5 rounded-full bg-brand-cyan/40"
-                />
-              ))}
-            </div>
-          </div>
-        </Motion.div>
-      )}
-    </AnimatePresence>
+      {/* Footer */}
+      <div className="px-4 py-2.5 border-t border-white/10 bg-black/40 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+           <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Live_Analysis_Running</span>
+        </div>
+        <div className="flex gap-1.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Motion.div 
+              key={i}
+              animate={{ 
+                opacity: [0.2, 1, 0.2],
+                scale: [1, 1.2, 1]
+              }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+              className="w-1 h-1 rounded-full bg-brand-cyan"
+            />
+          ))}
+        </div>
+      </div>
+    </Motion.div>
+
   );
 };
 

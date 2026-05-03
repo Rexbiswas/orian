@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, Calendar, Cpu, Zap, Activity, 
-  Wifi, BatteryMedium, Radio, Globe, ShieldCheck
+  Wifi, BatteryMedium, Radio, Globe, ShieldCheck, MapPin
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { syncTimeWithServer, getSyncedDate, isTimeSynced, getLastLatency } from '../utils/timeSync';
 
 const StatItem = ({ icon: Icon, label, value, percent, color = "text-brand-cyan" }) => (
   <div className="flex flex-col items-end gap-1 px-4 border-r border-white/5 last:border-none group relative overflow-hidden">
@@ -38,17 +39,59 @@ const StatItem = ({ icon: Icon, label, value, percent, color = "text-brand-cyan"
 );
 
 const Navbar = () => {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(getSyncedDate());
   const [deviceInfo, setDeviceInfo] = useState({ os: 'Loading...', browser: 'Detecting...' });
   const [systemData, setSystemData] = useState({
     cpu: 0,
     ram: 0,
     net: 0,
     latency: 0,
-    battery: 100,
+    battery: 0,
     cores: navigator.hardwareConcurrency || 8,
-    isCharging: false
+    isCharging: false,
+    sync: "0.00"
   });
+  const [location, setLocation] = useState('SYNCING_GEO...');
+  const [coords, setCoords] = useState({ lat: 0, lng: 0 });
+
+  useEffect(() => {
+    // Detect Location - High Precision GPS
+    const updateLocation = async (position) => {
+      const { latitude, longitude } = position.coords;
+      setCoords({ lat: latitude, lng: longitude });
+      
+      try {
+        // Reverse geocode using a free API (OpenStreetMap/Nominatim)
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        const data = await res.json();
+        const city = data.address.city || data.address.town || data.address.village || data.address.suburb || 'UNKNOWN_STATION';
+        const country = data.address.country_code?.toUpperCase() || 'XX';
+        setLocation(`${city.toUpperCase()}, ${country}`);
+      } catch (err) {
+        setLocation(`${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E`);
+      }
+    };
+
+    const handleError = (error) => {
+      console.warn("Location access denied or failed. Falling back to IP...");
+      // Fallback to IP if GPS fails
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => setLocation(`${data.city?.toUpperCase() || 'TERRA'}, ${data.country_code || 'ST'}`))
+        .catch(() => setLocation('TERRA_STATION_01'));
+    };
+
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(updateLocation, handleError, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+      return () => navigator.geolocation.clearWatch(watchId);
+    } else {
+      handleError();
+    }
+  }, []);
 
   useEffect(() => {
     // Detect OS and Browser
@@ -71,7 +114,6 @@ const Navbar = () => {
       let level = Math.round(battery.level * 100);
       let charging = battery.charging;
 
-      // Desktop Fallback: If level is 0 or infinity on a desktop, it's a wall-powered PC
       if (isDesktop && (level <= 0 || !isFinite(level))) {
         level = 100;
         charging = true;
@@ -100,8 +142,11 @@ const Navbar = () => {
 
     initBattery();
 
+    // Initial Time Sync
+    syncTimeWithServer();
+
     const updateStats = async () => {
-      setTime(new Date());
+      setTime(getSyncedDate());
 
       // 1. CPU
       const baseLoad = 15;
@@ -126,23 +171,30 @@ const Navbar = () => {
       }
 
       // 4. Sync & Latency
-      const syncRate = 99.90 + (Math.random() * 0.09);
+      // Reflect actual sync status
+      const syncRate = isTimeSynced() 
+        ? 99.98 + (Math.random() * 0.01) 
+        : 85.00 + (Math.random() * 5);
 
       setSystemData(prev => ({
         ...prev,
         cpu: cpuLoad.toFixed(1),
         ram: ramUsage,
         net: netSpeed.toFixed(1),
-        latency: (Math.random() * 5 + 2).toFixed(2),
+        latency: isTimeSynced() ? getLastLatency().toFixed(2) : (Math.random() * 5 + 10).toFixed(2),
         sync: syncRate.toFixed(2)
       }));
     };
 
-    const timer = setInterval(updateStats, 500);
+    const timer = setInterval(updateStats, 1000); // 1s interval is enough for clock
     updateStats();
+    
+    // Refresh sync every 5 minutes
+    const syncInterval = setInterval(syncTimeWithServer, 300000);
     
     return () => {
       clearInterval(timer);
+      clearInterval(syncInterval);
       if (batteryInstance) {
         batteryInstance.removeEventListener('chargingchange', () => updateBatteryInfo(batteryInstance));
         batteryInstance.removeEventListener('levelchange', () => updateBatteryInfo(batteryInstance));
@@ -216,6 +268,19 @@ const Navbar = () => {
 
       {/* Date and Time Section */}
       <div className="flex items-center gap-8">
+        <motion.div 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => window.open(`https://www.google.com/maps?q=${coords.lat},${coords.lng}`, '_blank')}
+          className="hidden xl:flex flex-col items-end gap-1 cursor-pointer group/loc"
+        >
+          <div className="flex items-center gap-2 text-[8px] font-black text-brand-cyan uppercase tracking-widest opacity-80 group-hover/loc:opacity-100 transition-opacity">
+            <MapPin size={10} className="animate-bounce [animation-duration:2s]" />
+            {location}
+          </div>
+          <div className="w-full h-[1px] bg-gradient-to-l from-brand-cyan/30 to-transparent group-hover/loc:from-brand-cyan transition-all" />
+        </motion.div>
+
         <div className="hidden sm:flex flex-col items-end gap-1">
           <div className="flex items-center gap-2 text-[8px] font-black text-slate-500 uppercase tracking-widest opacity-70">
             <Calendar size={10} />
@@ -235,8 +300,10 @@ const Navbar = () => {
               {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
             </motion.span>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan animate-pulse shadow-[0_0_8px_#00f2ff]" />
-              <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em]">SYS_ACTIVE_NODE</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isTimeSynced() ? 'bg-brand-cyan' : 'bg-amber-500'} animate-pulse shadow-[0_0_8px_${isTimeSynced() ? '#00f2ff' : '#f59e0b'}]`} />
+              <span className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                {isTimeSynced() ? 'QUANTUM_TIME_SYNCED' : 'SYS_CLOCK_LOCAL'}
+              </span>
             </div>
           </div>
         </div>

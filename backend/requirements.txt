@@ -5,3 +5,13 @@ numpy
 requests
 python-dotenv
 pydantic
+pyautogui
+pygetwindow
+pypdf
+psutil
+python-multipart
+python-docx
+pywin32; platform_system == 'Windows'
+SpeechRecognition
+pyaudio
+pydub

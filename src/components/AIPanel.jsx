@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Terminal, ShieldAlert, Cpu, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { getLastLatency, isTimeSynced } from '../utils/timeSync';
 
 const Metric = ({ label, val, color }) => (
   <div className="flex flex-col gap-0.5 p-2 rounded-lg bg-white/2 border border-white/5 hover:border-brand-cyan/20 transition-all group">
@@ -11,11 +12,12 @@ const Metric = ({ label, val, color }) => (
 
 const AIPanel = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [latency, setLatency] = useState("0.04ms");
+  const [latency, setLatency] = useState("0.00ms");
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setLatency(`${(Math.random() * 0.1 + 0.02).toFixed(2)}ms`);
+      const realLatency = isTimeSynced() ? getLastLatency() : Math.random() * 0.1 + 0.05;
+      setLatency(`${realLatency.toFixed(2)}ms`);
     }, 2000);
     return () => clearInterval(timer);
   }, []);

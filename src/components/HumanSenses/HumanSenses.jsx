@@ -16,8 +16,16 @@ const HumanSenses = ({ onSenseUpdate }) => {
   const [stream, setStream] = useState(null);
 
   useEffect(() => {
-    startWebcam();
-    return () => stopWebcam();
+    let cleanupLoop = null;
+    const init = async () => {
+      await startWebcam();
+      cleanupLoop = startAnalysisLoop();
+    };
+    init();
+    return () => {
+      stopWebcam();
+      if (cleanupLoop) cleanupLoop();
+    };
   }, []);
 
   const startWebcam = async () => {
@@ -29,7 +37,6 @@ const HumanSenses = ({ onSenseUpdate }) => {
         videoRef.current.srcObject = mediaStream;
       }
       setStream(mediaStream);
-      startAnalysisLoop();
     } catch (err) {
       console.error("Webcam Auto-Access Denied:", err);
     }
@@ -54,14 +61,15 @@ const HumanSenses = ({ onSenseUpdate }) => {
       
       canvas.toBlob(async (blob) => {
         const formData = new FormData();
-        formData.append('frame', blob);
+        formData.append('file', blob);
 
         try {
-          const response = await axios.post('http://localhost:5000/api/sense/analyze', formData);
+          const response = await axios.post('http://127.0.0.1:8000/api/sense/process', formData);
           if (response.data.success) {
             const data = response.data.senses;
             const newSenses = {
               emotion: data.emotion.dominant,
+              base: data.emotion.base,
               isLooking: data.engagement.is_looking,
               faceCenter: data.engagement.face_center,
               spatial: data.spatial
@@ -73,7 +81,7 @@ const HumanSenses = ({ onSenseUpdate }) => {
           console.error("Sense analysis failed", err);
         }
       }, 'image/jpeg', 0.5);
-    }, 2000);
+    }, 200);
 
     return () => clearInterval(interval);
   };

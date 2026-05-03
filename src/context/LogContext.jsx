@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { getSyncedDate } from '../utils/timeSync';
 
 const LogContext = createContext();
 
@@ -11,11 +12,11 @@ export const useLogs = () => {
 };
 
 export const LogProvider = ({ children }) => {
-  const [isLogOpen, setIsLogOpen] = useState(true);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([
-    { id: '1', type: 'SYS', message: 'Neural Interface Initialized', status: 'SUCCESS', timestamp: new Date().toLocaleTimeString() },
-    { id: '2', type: 'NET', message: 'Quantum Uplink Established', status: 'INFO', timestamp: new Date().toLocaleTimeString() },
-    { id: '3', type: 'MEM', message: 'Core Cache Optimized', status: 'INFO', timestamp: new Date().toLocaleTimeString() },
+    { id: '1', type: 'SYS', message: 'Neural Interface Initialized', status: 'SUCCESS', timestamp: getSyncedDate().toLocaleTimeString() },
+    { id: '2', type: 'NET', message: 'Quantum Uplink Established', status: 'INFO', timestamp: getSyncedDate().toLocaleTimeString() },
+    { id: '3', type: 'MEM', message: 'Core Cache Optimized', status: 'INFO', timestamp: getSyncedDate().toLocaleTimeString() },
   ]);
 
   const addLog = useCallback((message, type = 'EXEC', status = 'INFO') => {
@@ -24,7 +25,7 @@ export const LogProvider = ({ children }) => {
       type,
       message,
       status,
-      timestamp: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      timestamp: getSyncedDate().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     };
     setLogs((prev) => [newLog, ...prev].slice(0, 50)); // Keep last 50 logs
   }, []);
