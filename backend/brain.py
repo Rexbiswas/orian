@@ -129,7 +129,6 @@ class CognitiveBrain:
             self.report_mistake(f"launch_{app_name_clean}", str(e), "Check app name")
             return False
 
-
     # --- MEMORY SYSTEM ---
     def store_interaction(self, user_input, bot_response, context=""):
         conn = sqlite3.connect(self.db_path)
