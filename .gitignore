@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Electron build outputs
+dist-electron
+dist_electron
+out
+

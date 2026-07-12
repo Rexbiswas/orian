@@ -2,13 +2,18 @@
   "name": "orionai",
   "private": true,
   "version": "0.0.0",
+  "description": "OrionAI - An advanced intelligence dashboard featuring real-time eye-contact tracking, facial expression analysis, speech synthesis, and local system telemetry orchestration.",
+  "author": "Rishi Biswas",
   "type": "module",
+  "main": "main.cjs",
   "scripts": {
     "dev": "vite --host",
     "dev:all": "powershell -ExecutionPolicy Bypass -File ./start-all.ps1",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.45.0",
@@ -40,10 +45,51 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.3",
+    "electron": "^41.7.1",
+    "electron-builder": "24.13.3",
     "eslint": "^9.22.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
-    "vite": "^6.3.1"
+    "vite": "^6.3.1",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.orian.orionai",
+    "productName": "OrionAI",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.cjs",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      "server/**/*",
+      "backend/**/*",
+      ".env",
+      "server/.env",
+      "backend/.env"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "assets/icons/icon.ico"
+    },
+    "mac": {
+      "icon": "assets/icons/icon.icns"
+    },
+    "linux": {
+      "icon": "assets/icons/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

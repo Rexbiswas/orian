@@ -1,14 +1,14 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import FirstPageLayout from './pages/FirstPageLayout';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<FirstPageLayout />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
