@@ -2,7 +2,7 @@ import React from 'react';
 
 const HUDContainer = ({ children, header, footer }) => {
   return (
-    <div className="h-screen w-screen bg-[#020611] text-slate-200 flex flex-col justify-between overflow-hidden relative font-mono p-3 select-none">
+    <div className="min-h-screen lg:h-screen w-screen bg-[#020611] text-slate-200 flex flex-col justify-between overflow-y-auto lg:overflow-hidden relative font-mono p-3 select-none">
       
       {/* Cybersecurity scan grid and gradient radial glows */}
       <div className="absolute inset-0 bg-tech-grid pointer-events-none opacity-[0.35]" />

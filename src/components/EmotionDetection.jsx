@@ -1,6 +1,7 @@
 import React from 'react';
 import GlassCard from './GlassCard';
 import HumanSenses from './HumanSenses/HumanSenses';
+import { Smile, Target, BrainCircuit, BatteryLow, ShieldAlert, Cpu, Meh, Flame, Sparkles } from 'lucide-react';
 
 const EmotionDetection = ({ currentSenses, handleSenseUpdate }) => {
   // Helpers to simulate live data or pull parsed data
@@ -14,19 +15,23 @@ const EmotionDetection = ({ currentSenses, handleSenseUpdate }) => {
     return Math.round(base + (Math.sin(Date.now() / 2000 + emoName.length) * 3));
   };
 
-  const getEmotionSymbol = (base) => {
+  const getEmotionIcon = (base) => {
+    const size = 11;
     switch (base?.toLowerCase()) {
-      case 'happy': return '😊';
-      case 'focused': return '🎯';
-      case 'sad': return '😐';
-      case 'angry': return '😡';
-      case 'surprised': return '😲';
-      default: return '😐';
+      case 'happy': return <Smile size={size} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />;
+      case 'focused': return <Target size={size} className="text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]" />;
+      case 'thinking': return <BrainCircuit size={size} className="text-purple-400 drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]" />;
+      case 'tired': return <BatteryLow size={size} className="text-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]" />;
+      case 'stress': return <ShieldAlert size={size} className="text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />;
+      case 'sad': return <Meh size={size} className="text-slate-400 drop-shadow-[0_0_5px_rgba(148,163,184,0.5)]" />;
+      case 'angry': return <Flame size={size} className="text-rose-500 drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]" />;
+      case 'surprised': return <Sparkles size={size} className="text-cyan-300 drop-shadow-[0_0_5px_rgba(103,232,249,0.5)]" />;
+      default: return <Cpu size={size} className="text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]" />;
     }
   };
 
   return (
-    <GlassCard title="Emotion Detection" className="flex-1 flex flex-col min-h-0">
+    <GlassCard title="Emotion Detection" className="h-[280px] lg:h-auto lg:flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex gap-3 overflow-hidden min-h-0 pt-1">
         {/* Webcam Viewport */}
         <div className="w-[55%] h-full">
@@ -37,8 +42,8 @@ const EmotionDetection = ({ currentSenses, handleSenseUpdate }) => {
         <div className="w-[45%] flex flex-col justify-between overflow-hidden">
           <div className="bg-white/2 border border-white/5 rounded p-1.5 flex flex-col items-center">
             <span className="text-[6px] font-black text-slate-500 uppercase tracking-wider mb-1 block">Current Emotion</span>
-            <div className="flex items-center gap-1">
-              <span className="text-[12px]">{getEmotionSymbol(currentSenses.base)}</span>
+            <div className="flex items-center gap-1.5">
+              {getEmotionIcon(currentSenses.base)}
               <span className="text-[9px] font-black text-white capitalize leading-none">
                 {currentSenses.base || 'neutral'}
               </span>

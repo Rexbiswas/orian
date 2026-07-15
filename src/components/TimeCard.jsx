@@ -14,7 +14,7 @@ const TimeCard = () => {
   const formattedDate = timeState.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="w-1/2 flex items-center gap-3.5 pl-2 h-full">
+    <div className="w-full lg:w-[32%] flex items-center gap-3.5 border-b lg:border-b-0 lg:border-r border-white/5 pb-2 lg:pb-0 lg:pl-2 h-full min-w-0">
       <div className="w-9 h-9 rounded-xl bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shrink-0">
         <Clock size={16} />
       </div>

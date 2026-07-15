@@ -66,7 +66,7 @@ const VoiceWaveform = ({ isSpeaking, audioLevel, isListening }) => {
 
 const VoiceInput = ({ isSpeaking, audioLevel, isListening, toggleListening }) => {
   return (
-    <GlassCard title="VOICE INPUT" className="w-[28%] flex p-3 items-center overflow-hidden">
+    <GlassCard title="VOICE INPUT" className="w-full lg:w-[28%] flex p-3 items-center overflow-hidden">
       {/* Waveform Column on the Left */}
       <div className="flex-1 flex flex-col h-full justify-between overflow-hidden mr-2">
         <div className="h-7 w-full">

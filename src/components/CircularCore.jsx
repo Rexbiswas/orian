@@ -143,115 +143,72 @@ const CircularCore = ({ emotion, isSpeaking, audioLevel }) => {
         ctx.shadowBlur = 0;
       }
 
-      // ── 3. BRANCHING LIGHTNING BOLTS ─────────────────────────────────────
-      // Cycle bolt activity randomly each ~30 frames
-      if (Math.floor(time) % 3 === 0 && Math.random() < 0.4) {
-        const idx = Math.floor(Math.random() * BOLT_COUNT);
-        boltActivity[idx] = Math.random();
-      }
-
+      // ── 3. SWIRLING WAVY PLASMA SPHERE ────────────────────────────────────
       ctx.globalCompositeOperation = 'screen';
-
-      for (let b = 0; b < BOLT_COUNT; b++) {
-        const active = boltActivity[b];
-        if (active < 0.25) continue; // some bolts are dormant
-
-        const angle = boltAngles[b] + Math.sin(time * 0.005 + b) * 0.08;
-        const innerR = 18 * energyPulse;
-        // Bolt length varies: short arcs and long reaching bolts
-        const length = (55 + active * 48 + Math.sin(time * 0.03 + b * 1.7) * 18) * energyPulse;
-
-        const x1 = cx + innerR * Math.cos(angle);
-        const y1 = cy + innerR * Math.sin(angle);
-        const x2 = cx + (innerR + length) * Math.cos(angle);
-        const y2 = cy + (innerR + length) * Math.sin(angle);
-
-        const roughness = 18 + active * 14;
-        const depth = active > 0.6 ? 4 : 3;
-
-        // White-hot core bolt
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 6;
-        drawLightning(
-          ctx, x1, y1, x2, y2, roughness, depth,
-          Math.min(0.95, active + 0.1),
-          'rgba(255, 255, 255, ALPHA)'
+      
+      const waveLayers = 6;
+      for (let j = 0; j < waveLayers; j++) {
+        // Spiral rotation over time
+        const rotationAngle = (time * 0.006) + (j * Math.PI / waveLayers) * 1.5;
+        // Radius fluctuates dynamically
+        const baseRadius = (35 + Math.sin(time * 0.02 + j * 0.7) * 8) * energyPulse;
+        
+        ctx.beginPath();
+        ctx.lineWidth = 1.0;
+        
+        // Multi-color tech gradient (Cyan -> Purple -> Blue)
+        const waveGrad = ctx.createLinearGradient(
+          cx - baseRadius, cy - baseRadius, 
+          cx + baseRadius, cy + baseRadius
         );
-
-        // Cyan glow layer
-        ctx.shadowColor = '#00e5ff';
+        waveGrad.addColorStop(0, 'rgba(0, 229, 255, 0.75)');
+        waveGrad.addColorStop(0.4, 'rgba(168, 85, 247, 0.75)');
+        waveGrad.addColorStop(0.8, 'rgba(59, 130, 246, 0.75)');
+        waveGrad.addColorStop(1, 'rgba(112, 0, 255, 0.75)');
+        
+        ctx.strokeStyle = waveGrad;
+        ctx.shadowColor = j % 2 === 0 ? '#00e5ff' : '#a855f7';
         ctx.shadowBlur = 12;
-        drawLightning(
-          ctx, x1, y1, x2, y2, roughness * 1.1, depth - 1,
-          active * 0.7,
-          'rgba(0, 229, 255, ALPHA)'
-        );
-
-        // Deep blue outer glow
-        ctx.shadowColor = '#1a6fff';
-        ctx.shadowBlur = 18;
-        drawLightning(
-          ctx, x1, y1, x2, y2, roughness * 1.3, depth - 1,
-          active * 0.4,
-          'rgba(30, 111, 255, ALPHA)'
-        );
+        
+        for (let theta = 0; theta <= Math.PI * 2 + 0.15; theta += 0.04) {
+          // Complex frequency modulation to match the target wave orb screenshot
+          const freqCount = 4 + (j % 2) * 2;
+          const wobble = Math.sin(theta * freqCount + time * 0.1 + j) * 8 * Math.cos(time * 0.015 + j);
+          const r = baseRadius + wobble;
+          
+          const x = cx + r * Math.cos(theta + rotationAngle);
+          const y = cy + r * Math.sin(theta + rotationAngle);
+          
+          if (theta === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
       }
-
       ctx.shadowBlur = 0;
       ctx.globalCompositeOperation = 'source-over';
 
-      // ── 4. CENTRAL PLASMA BALL ────────────────────────────────────────────
-      // Outer corona halo
-      const haloR = 22 * energyPulse;
-      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR * 3.5);
-      halo.addColorStop(0, 'rgba(0, 229, 255, 0.25)');
-      halo.addColorStop(0.4, 'rgba(30, 100, 255, 0.12)');
-      halo.addColorStop(0.8, 'rgba(0, 50, 200, 0.04)');
-      halo.addColorStop(1, 'transparent');
-      ctx.fillStyle = halo;
-      ctx.beginPath();
-      ctx.arc(cx, cy, haloR * 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Ball body gradient
-      const ballR = haloR;
-      const ballGrad = ctx.createRadialGradient(cx - ballR * 0.3, cy - ballR * 0.3, 0, cx, cy, ballR);
-      ballGrad.addColorStop(0, '#ffffff');
-      ballGrad.addColorStop(0.15, 'rgba(200, 240, 255, 1)');
-      ballGrad.addColorStop(0.4, 'rgba(0, 200, 255, 0.9)');
-      ballGrad.addColorStop(0.7, 'rgba(20, 80, 255, 0.7)');
-      ballGrad.addColorStop(1, 'rgba(0, 30, 180, 0.5)');
-
-      ctx.shadowColor = '#00e5ff';
-      ctx.shadowBlur = 30;
-      ctx.fillStyle = ballGrad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, ballR, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Hot white specular highlight
-      const specR = ballR * 0.38;
-      const spec = ctx.createRadialGradient(cx - ballR * 0.28, cy - ballR * 0.28, 0, cx - ballR * 0.28, cy - ballR * 0.28, specR);
-      spec.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-      spec.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
-      spec.addColorStop(1, 'transparent');
-      ctx.fillStyle = spec;
-      ctx.beginPath();
-      ctx.arc(cx - ballR * 0.28, cy - ballR * 0.28, specR, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Crackling surface arcs on the ball
+      // ── 4. GLOWING CENTRAL ORB ────────────────────────────────────────────
       ctx.globalCompositeOperation = 'screen';
-      for (let arc = 0; arc < 5; arc++) {
-        const arcAngle = (arc * Math.PI * 2) / 5 + time * 0.06;
-        const ax1 = cx + ballR * 0.6 * Math.cos(arcAngle);
-        const ay1 = cy + ballR * 0.6 * Math.sin(arcAngle);
-        const ax2 = cx + ballR * 0.7 * Math.cos(arcAngle + 0.9 + Math.sin(time * 0.05) * 0.4);
-        const ay2 = cy + ballR * 0.7 * Math.sin(arcAngle + 0.9 + Math.sin(time * 0.05) * 0.4);
-        ctx.shadowColor = '#00e5ff';
-        ctx.shadowBlur = 8;
-        drawLightning(ctx, ax1, ay1, ax2, ay2, 4, 2, 0.7, 'rgba(100, 220, 255, ALPHA)');
-      }
+      const orbRadius = 14 * energyPulse;
+      
+      // Radial glow gradient matching screenshot's bright center
+      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, orbRadius * 3.5);
+      coreGrad.addColorStop(0, '#ffffff');
+      coreGrad.addColorStop(0.15, 'rgba(255, 255, 255, 1)');
+      coreGrad.addColorStop(0.3, 'rgba(0, 229, 255, 0.95)');
+      coreGrad.addColorStop(0.6, 'rgba(138, 43, 226, 0.5)');
+      coreGrad.addColorStop(0.9, 'rgba(59, 130, 246, 0.15)');
+      coreGrad.addColorStop(1, 'transparent');
+      
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, orbRadius * 3.5, 0, Math.PI * 2);
+      ctx.fill();
       ctx.shadowBlur = 0;
       ctx.globalCompositeOperation = 'source-over';
 

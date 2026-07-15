@@ -12,18 +12,25 @@ const MemoryTimeline = ({ logs }) => {
   }, [logs]);
 
   return (
-    <GlassCard title="Memory Timeline" className="flex-1 flex flex-col min-h-0">
-      <div 
+    <GlassCard title="Memory Timeline" className="h-[200px] lg:h-auto lg:flex-1 flex flex-col min-h-0">
+      <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar font-mono text-[8px] pt-1"
+        className="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar font-mono text-[8px] pt-1 relative"
       >
+        {/* Full vertical timeline track */}
+        <div className="absolute left-[5px] top-0 bottom-0 w-[1px] bg-purple-500/15" />
+
         {logs.slice(0, 7).map((log, idx) => (
-          <div key={log.id || idx} className="flex gap-2.5 items-start border-l border-white/10 pl-2 py-0.5 hover:bg-white/2 transition-colors">
-            <span className="text-purple-400 font-bold shrink-0">{log.timestamp}</span>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-white font-medium leading-tight">{log.message.replace(/_/g, ' ')}</span>
-              <span className="text-[5.5px] text-slate-500 uppercase font-black">TYPE: {log.type} // {log.status}</span>
-            </div>
+          <div key={log.id || idx} className="flex gap-3 items-center relative pl-3.5 py-1 hover:bg-white/2 transition-colors min-w-0">
+            {/* Timeline dot */}
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7] z-10 shrink-0 absolute left-[2px]" />
+
+            <span className="text-[7.5px] text-purple-400 font-bold tracking-wider shrink-0 w-[48px] pl-2 font-mono">
+              {log.timestamp}
+            </span>
+            <span className="text-[7.5px] text-slate-200 font-medium tracking-wide truncate leading-tight min-w-0 flex-1">
+              {log.message.replace(/_/g, ' ')}
+            </span>
           </div>
         ))}
         {logs.length === 0 && (

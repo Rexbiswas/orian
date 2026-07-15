@@ -31,7 +31,7 @@ const VisionSystem = () => {
   }, []);
 
   return (
-    <GlassCard title="Vision System" className="flex-1 flex flex-col min-h-0">
+    <GlassCard title="Vision System" className="h-[240px] lg:h-auto lg:flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex flex-col justify-between overflow-hidden min-h-0 pt-1">
         <div className="flex justify-between items-center text-[7px] font-black uppercase text-cyan-400/60 tracking-wider">
           <span>Live Screen Analysis</span>

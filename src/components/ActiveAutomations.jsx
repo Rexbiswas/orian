@@ -12,7 +12,7 @@ const ActiveAutomations = () => {
   ];
 
   return (
-    <GlassCard title="Active Automations" className="flex-1 flex flex-col min-h-0">
+    <GlassCard title="Active Automations" className="h-[200px] lg:h-auto lg:flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex flex-col justify-around overflow-hidden my-1 pt-1 min-h-0">
         {automations.map(task => (
           <ProgressBar 

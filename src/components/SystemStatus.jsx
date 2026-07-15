@@ -12,7 +12,7 @@ const SystemStatus = () => {
   ];
 
   return (
-    <GlassCard title="System Status" className="flex-1 flex flex-col min-h-0">
+    <GlassCard title="System Status" className="h-[180px] lg:h-auto lg:flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex flex-col justify-around pr-1 overflow-hidden font-mono text-[8px] my-1 pt-1 min-h-0">
         {services.map(service => (
           <div key={service.name} className="flex items-center justify-between border-b border-white/[0.02] pb-0.5 last:border-none">

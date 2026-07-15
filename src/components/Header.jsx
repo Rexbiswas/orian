@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Cpu, Activity, Star, Globe, Zap } from 'lucide-react';
+import { Clock, Cpu, Activity, Star, Globe, Bot } from 'lucide-react';
 import StatCard from './StatCard';
 
 const Header = ({ evolution = "68.4%" }) => {
@@ -41,17 +41,17 @@ const Header = ({ evolution = "68.4%" }) => {
     <header className="h-14 flex items-center justify-between border border-cyan-400/15 bg-black/60 rounded-lg px-4 backdrop-blur-md relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/5 via-transparent to-purple-600/5 pointer-events-none" />
       
-      {/* ORIAN AI Logo info */}
+      {/* HUMAINOD AI Logo info */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-cyan-400/10 border border-cyan-400/35 flex items-center justify-center text-cyan-400 shadow-[0_0_12px_rgba(0,229,255,0.2)]">
-          <Zap size={14} className="animate-pulse" />
+          <Bot size={14} className="animate-pulse" />
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-black tracking-widest text-white leading-none">
-            ORIAN <span className="text-cyan-400">AI</span>
+            HUMAINOD <span className="text-cyan-400">AI</span>
           </span>
-          <span className="text-[6.5px] font-black text-cyan-400/60 uppercase tracking-[0.4em] mt-1.5 leading-none">
-            OS V3.0
+          <span className="text-[6.5px] font-black text-slate-400 uppercase tracking-[0.4em] mt-1.5 leading-none">
+            OS v2.0
           </span>
         </div>
       </div>

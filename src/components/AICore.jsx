@@ -5,7 +5,7 @@ import AIModeCards from './AIModeCards';
 
 const AICore = ({ emotion, isSpeaking, audioLevel }) => {
   return (
-    <GlassCard isPurple={true} className="flex-1 flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
+    <GlassCard isPurple={true} className="h-[400px] lg:h-auto lg:flex-1 flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
       
       {/* Top Left Twin Glowing Dots */}
       

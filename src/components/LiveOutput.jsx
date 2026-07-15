@@ -4,7 +4,7 @@ import GlassCard from './GlassCard';
 
 const LiveOutput = ({ aiOutput }) => {
   return (
-    <GlassCard title="LIVE AI OUTPUT" className="w-[28%] flex p-3 flex-col justify-center overflow-hidden">
+    <GlassCard title="LIVE AI OUTPUT" className="w-full lg:w-[28%] flex p-3 flex-col justify-center overflow-hidden">
       <div className="flex-1 bg-black/40 border border-white/5 rounded p-2 flex items-center justify-between overflow-hidden">
         <p className="text-[8.5px] text-slate-400 font-medium font-mono leading-snug pr-2 truncate">
           {aiOutput || 'AI is ready and listening...'}

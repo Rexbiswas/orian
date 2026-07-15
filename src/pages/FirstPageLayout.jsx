@@ -15,6 +15,7 @@ import MemoryTimeline from '../components/MemoryTimeline';
 import AICore from '../components/AICore';
 import LocationCard from '../components/LocationCard';
 import TimeCard from '../components/TimeCard';
+import AgentCard from '../components/AgentCard';
 import VisionSystem from '../components/VisionSystem';
 import ActiveAutomations from '../components/ActiveAutomations';
 import SystemStatus from '../components/SystemStatus';
@@ -179,7 +180,7 @@ const FirstPageLayoutContent = () => {
   const header = <Header evolution={evolution} />;
 
   const footer = (
-    <div className="flex gap-3 shrink-0 h-20 w-full">
+    <div className="flex flex-col lg:flex-row gap-3 shrink-0 h-auto lg:h-20 w-full">
       <VoiceInput 
         isSpeaking={isSpeaking} 
         audioLevel={audioLevel} 
@@ -200,10 +201,10 @@ const FirstPageLayoutContent = () => {
   return (
     <HUDContainer header={header} footer={footer}>
       {/* 3-Column main layout grid */}
-      <div className="w-full h-full grid grid-cols-12 gap-3">
+      <div className="w-full h-auto lg:h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3">
         
         {/* COLUMN 1: LEFT SIDE (EMOTION / BRAIN / TIMELINE) */}
-        <div className="col-span-3 flex flex-col gap-3 h-full overflow-hidden">
+        <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-3 order-2 lg:order-1 h-auto lg:h-full overflow-visible lg:overflow-hidden">
           <EmotionDetection 
             currentSenses={currentSenses} 
             handleSenseUpdate={handleSenseUpdate} 
@@ -216,23 +217,24 @@ const FirstPageLayoutContent = () => {
           />
         </div>
 
-        {/* COLUMN 2: CENTER SECTION (AI CORE / LOCATION / TIME) */}
-        <div className="col-span-6 flex flex-col gap-3 h-full overflow-hidden">
+        {/* COLUMN 2: CENTER SECTION (AI CORE / LOCATION / TIME / AGENT) */}
+        <div className="col-span-1 md:col-span-2 lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2 h-auto lg:h-full overflow-visible lg:overflow-hidden">
           <AICore 
             emotion={currentSenses.base} 
             isSpeaking={isSpeaking} 
             audioLevel={audioLevel} 
           />
           
-          {/* Geolocation Cards */}
-          <GlassCard className="h-[20%] flex p-3 gap-4 overflow-hidden relative">
+          {/* Geolocation & Agent Cards */}
+          <GlassCard className="h-auto lg:h-[20%] lg:flex-none flex flex-col lg:flex-row p-3 gap-4 overflow-hidden relative">
             <LocationCard />
             <TimeCard />
+            <AgentCard />
           </GlassCard>
         </div>
 
         {/* COLUMN 3: RIGHT SIDE (VISION / AUTOMATIONS / STATUS) */}
-        <div className="col-span-3 flex flex-col gap-3 h-full overflow-hidden">
+        <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-3 order-3 lg:order-3 h-auto lg:h-full overflow-visible lg:overflow-hidden">
           <VisionSystem />
           <ActiveAutomations />
           <SystemStatus />

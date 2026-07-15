@@ -4,7 +4,7 @@ import GlassCard from './GlassCard';
 
 const TextCommand = ({ input, setInput, handleSend }) => {
   return (
-    <GlassCard title="TEXT COMMAND" className="w-[44%] flex flex-col p-3 justify-center relative overflow-hidden">
+    <GlassCard title="TEXT COMMAND" className="w-full lg:w-[44%] flex flex-col p-3 justify-center relative overflow-hidden">
       <div className="relative w-full flex items-center pt-0.5">
         <input 
           type="text" 
