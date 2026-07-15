@@ -217,7 +217,7 @@ const FirstPageLayoutContent = () => {
 
   if (isMobile) {
     return (
-      <div className="relative min-h-screen w-screen bg-[#020611] text-slate-200 flex flex-col justify-between items-center overflow-hidden font-mono p-4 select-none">
+      <div className="relative min-h-screen w-full max-w-full bg-[#020611] text-slate-200 flex flex-col justify-between items-center overflow-y-auto font-mono p-4 select-none">
         {/* Cybersecurity scan grid and gradient radial glows */}
         <div className="absolute inset-0 bg-tech-grid pointer-events-none opacity-[0.35]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(138,43,226,0.06),transparent_80%)] pointer-events-none" />
@@ -257,9 +257,9 @@ const FirstPageLayoutContent = () => {
         <AnimatePresence>
           {isChatOpen && (
             <motion.div 
-              initial={{ opacity: 0, y: 100 }}
+              initial={{ opacity: 0, y: '100%' }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
+              exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-[#070514]/95 border-t border-purple-500/30 rounded-t-3xl backdrop-blur-xl p-5 z-50 flex flex-col justify-between shadow-[0_-20px_50px_rgba(138,43,226,0.3)]"
             >

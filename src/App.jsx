@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 const FirstPageLayout = lazy(() => import('./pages/FirstPageLayout'));
 
 const GlobalLoading = () => (
-  <div className="w-screen h-screen bg-[#020611] flex flex-col items-center justify-center font-mono text-slate-400 select-none relative overflow-hidden">
+  <div className="w-full h-screen bg-[#020611] flex flex-col items-center justify-center font-mono text-slate-400 select-none relative overflow-hidden">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(138,43,226,0.1),transparent_70%)] pointer-events-none" />
     <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm w-full px-6">
       <div className="w-48 h-20 border border-cyan-500/20 bg-[#020611]/80 backdrop-blur-md rounded-md p-3 relative flex items-center justify-center shadow-[0_0_30px_rgba(0,229,255,0.1)]">
