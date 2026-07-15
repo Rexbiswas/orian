@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import axios from 'axios';
 import { LogProvider, useLogs } from '../context/LogContext';
 import { VoiceProvider, useVoice } from '../context/VoiceContext';
@@ -6,25 +6,28 @@ import { speak } from '../utils/voice';
 import { AudioRecorder } from '../utils/audioRecorder';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Mic, MicOff } from 'lucide-react';
-import NeuralSchema from '../components/NeuralSchema';
 
-// Import our modular HUD components
+// Eagerly loaded components
 import HUDContainer from '../components/HUDContainer';
 import GlassCard from '../components/GlassCard';
 import Header from '../components/Header';
-import EmotionDetection from '../components/EmotionDetection';
-import BrainDevelopment from '../components/BrainDevelopment';
-import MemoryTimeline from '../components/MemoryTimeline';
-import AICore from '../components/AICore';
 import LocationCard from '../components/LocationCard';
 import TimeCard from '../components/TimeCard';
 import AgentCard from '../components/AgentCard';
-import VisionSystem from '../components/VisionSystem';
-import ActiveAutomations from '../components/ActiveAutomations';
-import SystemStatus from '../components/SystemStatus';
 import VoiceInput from '../components/VoiceInput';
 import TextCommand from '../components/TextCommand';
 import LiveOutput from '../components/LiveOutput';
+import HUDSkeleton from '../components/HUDSkeleton';
+
+// Lazy loaded heavy components
+const NeuralSchema = lazy(() => import('../components/NeuralSchema'));
+const EmotionDetection = lazy(() => import('../components/EmotionDetection'));
+const BrainDevelopment = lazy(() => import('../components/BrainDevelopment'));
+const MemoryTimeline = lazy(() => import('../components/MemoryTimeline'));
+const AICore = lazy(() => import('../components/AICore'));
+const VisionSystem = lazy(() => import('../components/VisionSystem'));
+const ActiveAutomations = lazy(() => import('../components/ActiveAutomations'));
+const SystemStatus = lazy(() => import('../components/SystemStatus'));
 
 const FirstPageLayoutContent = () => {
   const { logs, addLog } = useLogs();
@@ -231,10 +234,12 @@ const FirstPageLayoutContent = () => {
 
         {/* Center: Neural Schema */}
         <div className="flex-1 w-full flex items-center justify-center z-10 relative overflow-visible scale-90 sm:scale-100">
-          <NeuralSchema 
-            isLooking={currentSenses.isLooking} 
-            emotion={currentSenses.base} 
-          />
+          <Suspense fallback={<HUDSkeleton title="NEURAL SYNCING" height="150px" />}>
+            <NeuralSchema 
+              isLooking={currentSenses.isLooking} 
+              emotion={currentSenses.base} 
+            />
+          </Suspense>
         </div>
 
         {/* Bottom: Message CTA Button */}
@@ -336,25 +341,33 @@ const FirstPageLayoutContent = () => {
         
         {/* COLUMN 1: LEFT SIDE (EMOTION / BRAIN / TIMELINE) */}
         <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-3 order-2 lg:order-1 h-auto lg:h-full overflow-visible lg:overflow-hidden">
-          <EmotionDetection 
-            currentSenses={currentSenses} 
-            handleSenseUpdate={handleSenseUpdate} 
-          />
-          <BrainDevelopment 
-            evolution={evolution} 
-          />
-          <MemoryTimeline 
-            logs={logs} 
-          />
+          <Suspense fallback={<HUDSkeleton title="EMOTION RADAR" height="280px" />}>
+            <EmotionDetection 
+              currentSenses={currentSenses} 
+              handleSenseUpdate={handleSenseUpdate} 
+            />
+          </Suspense>
+          <Suspense fallback={<HUDSkeleton title="NEURAL SYNC" height="220px" />}>
+            <BrainDevelopment 
+              evolution={evolution} 
+            />
+          </Suspense>
+          <Suspense fallback={<HUDSkeleton title="MEMORY TIMELINE" height="200px" />}>
+            <MemoryTimeline 
+              logs={logs} 
+            />
+          </Suspense>
         </div>
 
         {/* COLUMN 2: CENTER SECTION (AI CORE / LOCATION / TIME / AGENT) */}
         <div className="col-span-1 md:col-span-2 lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2 h-auto lg:h-full overflow-visible lg:overflow-hidden">
-          <AICore 
-            emotion={currentSenses.base} 
-            isSpeaking={isSpeaking} 
-            audioLevel={audioLevel} 
-          />
+          <Suspense fallback={<HUDSkeleton title="AI COGNITIVE CORE" height="400px" isPurple={true} />}>
+            <AICore 
+              emotion={currentSenses.base} 
+              isSpeaking={isSpeaking} 
+              audioLevel={audioLevel} 
+            />
+          </Suspense>
           
           {/* Geolocation & Agent Cards */}
           <GlassCard className="h-auto lg:h-[20%] lg:flex-none flex flex-col lg:flex-row p-3 gap-4 overflow-hidden relative">
@@ -366,9 +379,15 @@ const FirstPageLayoutContent = () => {
 
         {/* COLUMN 3: RIGHT SIDE (VISION / AUTOMATIONS / STATUS) */}
         <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-3 order-3 lg:order-3 h-auto lg:h-full overflow-visible lg:overflow-hidden">
-          <VisionSystem />
-          <ActiveAutomations />
-          <SystemStatus />
+          <Suspense fallback={<HUDSkeleton title="VISION SYSTEM" height="240px" />}>
+            <VisionSystem />
+          </Suspense>
+          <Suspense fallback={<HUDSkeleton title="ACTIVE AUTOMATIONS" height="200px" />}>
+            <ActiveAutomations />
+          </Suspense>
+          <Suspense fallback={<HUDSkeleton title="SYSTEM STATUS" height="180px" />}>
+            <SystemStatus />
+          </Suspense>
         </div>
 
       </div>
