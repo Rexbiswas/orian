@@ -4,6 +4,9 @@ import { LogProvider, useLogs } from '../context/LogContext';
 import { VoiceProvider, useVoice } from '../context/VoiceContext';
 import { speak } from '../utils/voice';
 import { AudioRecorder } from '../utils/audioRecorder';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MessageSquare, X, Send, Mic, MicOff } from 'lucide-react';
+import NeuralSchema from '../components/NeuralSchema';
 
 // Import our modular HUD components
 import HUDContainer from '../components/HUDContainer';
@@ -38,6 +41,17 @@ const FirstPageLayoutContent = () => {
   const [input, setInput] = useState('');
   const [aiOutput, setAiOutput] = useState('ORIAN AI OS initialized. All neural cores synced.');
   const [evolution, setEvolution] = useState('68.4%');
+  const [isMobile, setIsMobile] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const recorderRef = useRef(new AudioRecorder());
 
@@ -197,6 +211,123 @@ const FirstPageLayoutContent = () => {
       />
     </div>
   );
+
+  if (isMobile) {
+    return (
+      <div className="relative min-h-screen w-screen bg-[#020611] text-slate-200 flex flex-col justify-between items-center overflow-hidden font-mono p-4 select-none">
+        {/* Cybersecurity scan grid and gradient radial glows */}
+        <div className="absolute inset-0 bg-tech-grid pointer-events-none opacity-[0.35]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(138,43,226,0.06),transparent_80%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(0,229,255,0.04),transparent_65%)] pointer-events-none" />
+
+        {/* Minimal Header */}
+        <div className="w-full flex justify-between items-center z-10 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00E5FF] shadow-[0_0_12px_rgba(0,229,255,0.9)] animate-pulse" />
+            <span className="text-[10px] text-cyan-300 tracking-[0.2em] font-black uppercase">ORIAN AI</span>
+          </div>
+          <span className="text-[8px] text-slate-500 font-bold border border-slate-800 px-2 py-0.5 rounded">EVO: {evolution}</span>
+        </div>
+
+        {/* Center: Neural Schema */}
+        <div className="flex-1 w-full flex items-center justify-center z-10 relative overflow-visible scale-90 sm:scale-100">
+          <NeuralSchema 
+            isLooking={currentSenses.isLooking} 
+            emotion={currentSenses.base} 
+          />
+        </div>
+
+        {/* Bottom: Message CTA Button */}
+        <div className="w-full flex justify-center pb-8 z-20 shrink-0">
+          <button 
+            onClick={() => setIsChatOpen(true)}
+            className="flex items-center gap-3 px-6 py-3.5 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 border border-cyan-400/30 hover:border-cyan-400/60 rounded-full text-xs font-bold text-cyan-200 tracking-wider hover:text-white transition-all shadow-[0_0_20px_rgba(0,229,255,0.15)] hover:shadow-[0_0_30px_rgba(0,229,255,0.35)] backdrop-blur-md active:scale-95 cursor-pointer"
+          >
+            <MessageSquare size={16} className="text-cyan-400 animate-pulse" />
+            <span>COMMUNICATE WITH ORIAN</span>
+          </button>
+        </div>
+
+        {/* Slide-up Chat Overlay */}
+        <AnimatePresence>
+          {isChatOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-[#070514]/95 border-t border-purple-500/30 rounded-t-3xl backdrop-blur-xl p-5 z-50 flex flex-col justify-between shadow-[0_-20px_50px_rgba(138,43,226,0.3)]"
+            >
+              {/* Header inside overlay */}
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
+                <span className="text-[10px] text-purple-300 font-bold tracking-widest uppercase">ORIAN CHAT TERMINAL</span>
+                <button 
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Chat history / output area */}
+              <div className="flex-1 overflow-y-auto mb-4 min-h-[150px] flex flex-col justify-end bg-black/40 border border-white/5 rounded-xl p-4 gap-3">
+                <div className="text-[10px] text-slate-500 uppercase tracking-widest leading-normal">System Feed</div>
+                <div className="text-xs text-slate-300 bg-white/5 border border-white/5 p-3 rounded-lg leading-relaxed font-mono whitespace-pre-wrap">
+                  {aiOutput || 'Core synced. Ready for instructions...'}
+                </div>
+                {isSpeaking && (
+                  <div className="text-[9px] text-cyan-400 font-bold animate-pulse flex items-center gap-1.5 mt-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#00e5ff]" />
+                    Orian is speaking...
+                  </div>
+                )}
+              </div>
+
+              {/* Input section */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 relative flex items-center">
+                    <input 
+                      type="text" 
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                      placeholder="Type your command..."
+                      className="w-full bg-[#110d2c]/80 border border-cyan-400/30 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono animate-none"
+                    />
+                    <button 
+                      onClick={() => handleSend()}
+                      className="absolute right-3.5 text-cyan-400 hover:text-cyan-200 transition-colors p-1.5 cursor-pointer"
+                    >
+                      <Send size={15} />
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={toggleListening}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                      isListening 
+                      ? 'bg-purple-600/35 border border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(176,38,255,0.6)] animate-pulse'
+                      : 'bg-[#110d2c]/80 border border-purple-500/30 text-purple-400 hover:text-purple-200'
+                    }`}
+                  >
+                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                  </button>
+                </div>
+                
+                {/* Voice status visualization */}
+                {isListening && (
+                  <div className="text-[8px] text-purple-400 font-mono tracking-widest text-center mt-1">
+                    AUDIO UPLINK ACTIVE // TRANSLATING SPEECH
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <HUDContainer header={header} footer={footer}>
