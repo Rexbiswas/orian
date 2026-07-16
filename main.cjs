@@ -158,7 +158,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
-    title: 'OrionAI',
+    title: 'OrianAI',
     backgroundColor: '#020617',
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {

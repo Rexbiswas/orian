@@ -314,7 +314,7 @@ const HumanSenses = ({ onSenseUpdate }) => {
           autoPlay 
           playsInline 
           muted 
-          className="absolute inset-0 w-full h-full object-cover opacity-75 mix-blend-screen"
+          className="absolute inset-0 w-full h-full object-contain opacity-75 mix-blend-screen"
         />
       )}
       
@@ -331,8 +331,8 @@ const HumanSenses = ({ onSenseUpdate }) => {
       {/* Render Canvas for Scanning & Face Mesh HUD overlays */}
       <canvas 
         ref={canvasRef} 
-        width="280" 
-        height="180" 
+        width="320" 
+        height="240" 
         className="absolute inset-0 w-full h-full z-10 pointer-events-none"
       />
 
@@ -340,7 +340,7 @@ const HumanSenses = ({ onSenseUpdate }) => {
       <div className="absolute left-0 right-0 h-[1.5px] bg-cyan-400/35 shadow-[0_0_8px_rgba(6,182,212,0.8)] z-10 pointer-events-none animate-scanline" />
 
       {/* Top HUD UI Status tags */}
-      <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20 pointer-events-none">
+      <div className="absolute top-2.5 left-3.5 right-3.5 flex justify-between items-center z-20 pointer-events-none">
         <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded border border-white/5 backdrop-blur-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
           <span className="text-[7px] font-black text-white/70 uppercase tracking-widest">
@@ -353,7 +353,7 @@ const HumanSenses = ({ onSenseUpdate }) => {
       </div>
 
       {/* Bottom HUD UI Status tags */}
-      <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center z-20 pointer-events-none">
+      <div className="absolute bottom-2.5 left-3.5 right-3.5 flex justify-between items-center z-20 pointer-events-none">
         <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/5 backdrop-blur-sm">
           <span className={`w-1 h-1 rounded-full ${senses.isLooking ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'}`} />
           <span className="text-[6px] font-bold text-slate-300 uppercase tracking-widest">

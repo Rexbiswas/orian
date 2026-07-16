@@ -25,7 +25,7 @@ const AgentCard = () => {
   }, []);
 
   return (
-    <div className="w-full lg:w-[36%] flex items-center gap-3.5 pl-2 h-full min-w-0">
+    <div className="w-full lg:w-[100%] flex items-center gap-3.5 pl-2 h-full min-w-0">
       <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 shadow-[0_0_12px_rgba(168,85,247,0.2)]">
         <Bot size={16} className="animate-pulse" />
       </div>

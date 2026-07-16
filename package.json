@@ -1,7 +1,7 @@
 {
   "name": "orionai",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.1",
   "description": "OrionAI - An advanced intelligence dashboard featuring real-time eye-contact tracking, facial expression analysis, speech synthesis, and local system telemetry orchestration.",
   "author": "Rishi Biswas",
   "type": "module",
@@ -58,7 +58,7 @@
   },
   "build": {
     "appId": "com.orian.orionai",
-    "productName": "OrionAI",
+    "productName": "OrianAI",
     "directories": {
       "output": "dist-electron"
     },

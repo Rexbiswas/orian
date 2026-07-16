@@ -1,63 +1,70 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { playHoverClick } from '../utils/sound';
 
 const GlassCard = ({ children, title, className = "", isPurple = false }) => {
-  // Exact styling guidelines from user
-  // backdrop-filter: blur(18px);
-  // border: 1px solid rgba(0,229,255,.25);
-  // box-shadow: 0 0 20px rgba(0,229,255,.15), 0 0 50px rgba(138,43,226,.15);
-  
-  const borderStyles = isPurple 
+  const borderStyles = isPurple
     ? {
-        border: '1px solid rgba(138,43,226,0.3)',
-        boxShadow: '0 0 25px rgba(138,43,226,0.15), 0 0 60px rgba(112,0,255,0.12), inset 0 0 12px rgba(138,43,226,0.05)',
+        border: '1px solid rgba(0,255,136,0.28)',
+        boxShadow: '0 0 28px rgba(0,255,136,0.1), 0 0 55px rgba(0,200,100,0.08), inset 0 1px 0 rgba(0,255,136,0.08)',
       }
     : {
-        border: '1px solid rgba(0,229,255,0.28)',
-        boxShadow: '0 0 20px rgba(0,229,255,0.15), 0 0 50px rgba(138,43,226,0.15), inset 0 0 12px rgba(0,229,255,0.04)',
+        border: '1px solid rgba(0,102,255,0.28)',
+        boxShadow: '0 0 24px rgba(0,102,255,0.12), 0 0 55px rgba(0,50,200,0.1), inset 0 1px 0 rgba(0,102,255,0.08)',
       };
 
-  const cornerColor = isPurple ? 'border-purple-500' : 'border-cyan-400';
-  const accentColor = isPurple ? 'bg-purple-500' : 'bg-cyan-400';
+  const accentHex   = isPurple ? '#00FF88' : '#0066FF';
+  const cornerColor = isPurple ? 'border-green-400/60' : 'border-blue-500/60';
+  const ledColor    = isPurple ? 'bg-green-400' : 'bg-blue-500';
+  const titleColor  = isPurple ? 'text-green-400' : 'text-blue-400';
+  const sheenVia    = isPurple ? 'via-green-400/25' : 'via-blue-500/25';
 
   return (
     <motion.div
-      whileHover={{ 
-        scale: 1.02, 
-        y: -1.5,
+      onMouseEnter={() => playHoverClick()}
+      whileHover={{
+        scale: 1.012,
+        y: -1,
         boxShadow: isPurple
-          ? '0 0 35px rgba(138,43,226,0.32), 0 0 70px rgba(112,0,255,0.25), inset 0 0 15px rgba(138,43,226,0.08)'
-          : '0 0 30px rgba(0,229,255,0.3), 0 0 60px rgba(138,43,226,0.28), inset 0 0 15px rgba(0,229,255,0.08)',
-        borderColor: isPurple ? 'rgba(138,43,226,0.45)' : 'rgba(0,229,255,0.45)'
+          ? '0 0 38px rgba(0,255,136,0.22), 0 0 80px rgba(0,200,100,0.15), inset 0 1px 0 rgba(0,255,136,0.12)'
+          : '0 0 34px rgba(0,102,255,0.28), 0 0 70px rgba(0,50,200,0.18), inset 0 1px 0 rgba(0,102,255,0.14)',
       }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
       style={borderStyles}
-      className={`relative rounded-md bg-[#020611]/80 backdrop-blur-[18px] p-3 overflow-hidden transition-all duration-300 ${className}`}
+      className={`relative rounded-[14px] bg-[#03060F]/80 backdrop-blur-[22px] p-3 overflow-hidden transition-all duration-300 ${className}`}
     >
-      {/* Top linear glow sheen */}
-      <div className={`absolute top-0 left-0 right-0 h-[1.2px] bg-gradient-to-r from-transparent ${isPurple ? 'via-purple-500/40' : 'via-cyan-400/40'} to-transparent`} />
+      {/* Top sheen line */}
+      <div className={`absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${sheenVia} to-transparent pointer-events-none`} />
 
-      {/* Cybernetic HUD Corner brackets */}
-      <div className={`absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-top-left-radius-[3px] ${cornerColor}`} />
-      <div className={`absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-top-right-radius-[3px] ${cornerColor}`} />
-      <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-bottom-left-radius-[3px] ${cornerColor}`} />
-      <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-bottom-right-radius-[3px] ${cornerColor}`} />
+      {/* Ambient inner radial glow */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-20"
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${accentHex}22 0%, transparent 70%)` }}
+      />
 
-      {/* HUD Accent lines at the edges */}
-      <div className={`absolute top-2 left-0 w-[2px] h-3 ${accentColor} opacity-40`} />
-      <div className={`absolute top-2 right-0 w-[2px] h-3 ${accentColor} opacity-40`} />
+      {/* Corner bracket accents */}
+      <div className={`absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] rounded-tl-[14px] ${cornerColor}`} />
+      <div className={`absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] rounded-tr-[14px] ${cornerColor}`} />
+      <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] rounded-bl-[14px] ${cornerColor}`} />
+      <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] rounded-br-[14px] ${cornerColor}`} />
 
-      {/* Optional Card Title Header */}
+      {/* Card Title Header */}
       {title && (
-        <div className="mb-2.5 border-b border-white/5 pb-1 flex justify-between items-center relative">
-          <span className={`text-[8.5px] font-black uppercase tracking-[0.2em] font-mono ${isPurple ? 'text-purple-400' : 'text-cyan-400'}`}>
-            {title}
-          </span>
-          <div className="flex gap-1">
-            <span className={`w-1 h-[2px] ${accentColor} opacity-40`} />
-            <span className={`w-3 h-[2px] ${accentColor} opacity-40`} />
+        <div className="mb-2 pb-1.5 flex items-center justify-between relative border-b border-white/[0.04]">
+          <div className="flex items-center gap-2">
+            <span className={`w-1 h-1 rounded-full ${ledColor} shadow-[0_0_5px_currentColor] animate-pulse shrink-0`} />
+            <span className={`text-[8px] font-black uppercase tracking-[0.22em] font-mono ${titleColor}`}>
+              {title}
+            </span>
           </div>
-          <div className={`absolute bottom-0 left-0 h-[1.2px] w-8 ${isPurple ? 'bg-purple-500 shadow-[0_0_8px_#8a2be2]' : 'bg-cyan-400 shadow-[0_0_8px_#00e5ff]'}`} />
+          <div className="flex items-center gap-1">
+            <span className={`w-4 h-[1.5px] ${ledColor} opacity-30 rounded-full`} />
+            <span className={`w-1.5 h-[1.5px] ${ledColor} opacity-50 rounded-full`} />
+          </div>
+          <div
+            className="absolute bottom-0 left-0 h-[1px] w-10 opacity-60"
+            style={{ background: `linear-gradient(to right, ${accentHex}, transparent)`, boxShadow: `0 0 6px ${accentHex}` }}
+          />
         </div>
       )}
 
