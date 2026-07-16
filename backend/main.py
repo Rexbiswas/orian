@@ -113,6 +113,9 @@ async def process_senses(file: UploadFile = File(...)):
         
         is_looking = False
         dominant_emotion = "neutral"
+        final_emotion = "NEUTRAL [50%]"
+        base_state = "calm"
+        intensity = 50
         face_center = {"x": 0.5, "y": 0.5}
         spatial_data = {"azimuth": 0, "distance": 1}
 

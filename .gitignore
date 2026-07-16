@@ -33,3 +33,5 @@ out
 
 
 .vercel
+
+npx cap open android
