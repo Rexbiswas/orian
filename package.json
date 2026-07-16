@@ -8,7 +8,7 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "vite --host",
-    "dev:all": "powershell -ExecutionPolicy Bypass -File ./start-all.ps1",
+    "dev:all": "concurrently -n \"backend,server,bridge,frontend\" -c \"green,blue,magenta,cyan\" \"cd backend && python main.py\" \"npm run dev --prefix server\" \"npx -y @hackerai/local@latest --token hsb_b14367f6b37d02aff7c5c964f4eb9799e2497de2de49f1daa88fcfde6f130465 --name \\\"My Machine\\\"\" \"npm run dev\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
