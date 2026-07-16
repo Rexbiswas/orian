@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import { LogProvider, useLogs } from '../context/LogContext';
 import { VoiceProvider, useVoice } from '../context/VoiceContext';
 import { speak } from '../utils/voice';
@@ -62,7 +63,7 @@ const FirstPageLayoutContent = () => {
 
     const greet = async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:8000/api/brain/greeting');
+        const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
         setAiOutput(res.data.greeting);
         addLog('VOICE_LINK_ESTABLISHED', 'SYS', 'SUCCESS');
         await speak(res.data.greeting, setSpeakingState);
@@ -77,7 +78,7 @@ const FirstPageLayoutContent = () => {
     // Fetch brain evolution metrics
     const fetchEvo = async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:8000/api/sys/evolution');
+        const res = await axios.get(`${API_BASE_URL}/api/sys/evolution`);
         if (res.data.success) {
           setEvolution(res.data.metrics.evolution);
         }
@@ -104,7 +105,7 @@ const FirstPageLayoutContent = () => {
         const formData = new FormData();
         formData.append('file', audioBlob, 'command.wav');
 
-        const res = await axios.post('http://localhost:8000/api/sense/voice', formData);
+        const res = await axios.post(`${API_BASE_URL}/api/sense/voice`, formData);
 
         if (res.data.success) {
           const transcript = res.data.transcript;
@@ -142,7 +143,7 @@ const FirstPageLayoutContent = () => {
       if (commandLower.includes('open') || commandLower.includes('launch')) {
         const app = commandLower.replace('open ', '').replace('launch ', '').trim();
         addLog(`COMMAND_LAUNCH: ${app.toUpperCase()}`, 'BRAIN', 'INFO');
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'launch', payload: app });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'launch', payload: app });
         
         const feedback = res.data.success 
           ? `Access Granted. Executing launch sequence for ${app}.`
@@ -153,26 +154,26 @@ const FirstPageLayoutContent = () => {
       } 
       else if (commandLower.match(/(volume|sound|audio|mute)/i)) {
         const vol = commandLower.match(/\d+/)?.[0] || "50";
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: 'volume', key: vol });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'volume', key: vol });
         const feedback = res.data.success ? res.data.message : `Telemetry error: Failed to adjust core volume.`;
         setAiOutput(feedback);
         await speak(feedback, setSpeakingState);
       }
       else if (commandLower.match(/(bright|brit|light)/i) && commandLower.includes('to')) {
         const level = commandLower.match(/\d+/)?.[0] || "100";
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: 'brightness', key: level });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'brightness', key: level });
         const feedback = res.data.success ? res.data.message : `Telemetry error: Failed to calibrate system screen.`;
         setAiOutput(feedback);
         await speak(feedback, setSpeakingState);
       }
       else if (commandLower.includes('screenshot')) {
-        await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'screenshot' });
+        await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'screenshot' });
         const feedback = "Screen capture complete. Frame coordinates exported to central database.";
         setAiOutput(feedback);
         await speak(feedback, setSpeakingState);
       }
       else if (commandLower.includes('stats') || commandLower.includes('status')) {
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'stats' });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
         const s = res.data.stats;
         const feedback = `System Status Report: CPU utilizing ${s.cpu_usage}%, Memory using ${s.memory_usage}%. Core network nodes active: ${s.active_apps}.`;
         setAiOutput(feedback);
@@ -180,7 +181,7 @@ const FirstPageLayoutContent = () => {
       }
       else {
         // Fallback: Post to local FastAPI chat
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/chat', { text: textToSend });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
         const feedback = res.data.response || "Neural query executed successfully.";
         setAiOutput(feedback);
         addLog('QUERY_RESPONSE_SYNCED', 'SYS', 'SUCCESS');

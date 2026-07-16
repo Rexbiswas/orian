@@ -7,6 +7,7 @@ import { speak } from '../utils/voice';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { AudioRecorder } from '../utils/audioRecorder';
+import { API_BASE_URL } from '../config';
 
 const DownloadProgress = ({ label }) => {
   const [progress, setProgress] = useState(0);
@@ -70,7 +71,7 @@ const ChatPanel = ({ onClose }) => {
   useEffect(() => {
     const fetchGreeting = async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:8000/api/brain/greeting');
+        const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
         const greeting = res.data.greeting;
         setMessages([{ id: 1, role: 'ai', text: greeting }]);
       } catch (err) {
@@ -92,7 +93,7 @@ const ChatPanel = ({ onClose }) => {
         const formData = new FormData();
         formData.append('file', audioBlob, 'command.wav');
 
-        const res = await axios.post('http://localhost:8000/api/sense/voice', formData);
+        const res = await axios.post(`${API_BASE_URL}/api/sense/voice`, formData);
 
         if (res.data.success) {
           const transcript = res.data.text;
@@ -146,7 +147,7 @@ const ChatPanel = ({ onClose }) => {
         const app = commandLower.replace('open ', '').replace('launch ', '').trim();
         addLog(`COMMAND_DETECTED: LAUNCH_${app.toUpperCase()}`, 'BRAIN', 'INFO');
 
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', {
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, {
           action: 'launch',
           payload: app
         });
@@ -160,35 +161,35 @@ const ChatPanel = ({ onClose }) => {
         }
       } else if (commandLower.match(/(volume|sound|audio|mute)/i)) {
         const vol = commandLower.match(/\d+/)?.[0] || "50";
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: 'volume', key: vol });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'volume', key: vol });
         responseText = res.data.success ? res.data.message : `System Warning: ${res.data.message || res.data.error || 'Operation failed'}`;
       } else if (commandLower.match(/(bright|brit|brith|light)/i) && commandLower.includes('to')) {
         const level = commandLower.match(/\d+/)?.[0] || "100";
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: 'brightness', key: level });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'brightness', key: level });
         responseText = res.data.success ? res.data.message : `Optical Warning: ${res.data.message || res.data.error || 'Display unavailable'}`;
       } else if (commandLower.match(/(dark mode|light mode|theme)/i)) {
         const mode = commandLower.includes('dark') ? 'dark mode' : 'light mode';
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: mode });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: mode });
         responseText = res.data.success ? res.data.message : `UI Warning: ${res.data.message || res.data.error || 'Theme change failed'}`;
       } else if (commandLower.match(/(wifi|wi-fi|internet|network)/i) && (commandLower.includes('on') || commandLower.includes('off'))) {
         const state = commandLower.includes('on') ? 'on' : 'off';
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'setting', payload: 'wifi', key: state });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'wifi', key: state });
         responseText = res.data.success ? res.data.message : `Uplink Warning: ${res.data.message || res.data.error || 'Network error'}`;
       } else if (commandLower.includes('meeting')) {
         const action = commandLower.includes('summarize') ? 'summarize' : 'start';
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'meeting', payload: action });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'meeting', payload: action });
         responseText = res.data.message;
       } else if (commandLower.includes('translate')) {
         const parts = commandLower.split(' to ');
         const textToTranslate = parts[0].replace('translate ', '');
         const targetLang = parts[1] || 'spanish';
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'translate', payload: textToTranslate, key: targetLang });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'translate', payload: textToTranslate, key: targetLang });
         responseText = res.data.translation;
       } else if (commandLower.includes('screenshot')) {
-        await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'screenshot' });
+        await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'screenshot' });
         responseText = "Neural snapshot captured and stored in central database.";
       } else if (commandLower.includes('stats') || commandLower.includes('status')) {
-        const res = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'stats' });
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
         const s = res.data.stats;
         responseText = `System Integrity: CPU ${s.cpu_usage}%, RAM ${s.memory_usage}%. Neural nodes active: ${s.active_apps}.`;
       } else {
@@ -208,7 +209,7 @@ const ChatPanel = ({ onClose }) => {
           }]);
 
           // Execute actual backend integration in parallel
-          axios.post('http://127.0.0.1:8000/api/brain/chat', { text: textToSend }).then(res => {
+          axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend }).then(res => {
             setTimeout(() => {
               setMessages(prev => prev.map(m =>
                 m.id === downloadMsgId ? { ...m, text: res.data.response, type: 'text' } : m
@@ -235,7 +236,7 @@ const ChatPanel = ({ onClose }) => {
             ];
             responseText = orianResponses[Math.floor(Math.random() * orianResponses.length)];
             setMessages(prev => [...prev, { role: 'ai', text: responseText, type: 'neural' }]);
-            axios.post('http://127.0.0.1:8000/api/brain/chat', { text: textToSend, response: responseText, sync_only: true });
+            axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend, response: responseText, sync_only: true });
             setIsTyping(false);
             return;
         }
@@ -245,7 +246,7 @@ const ChatPanel = ({ onClose }) => {
             console.log("[Orian_Neural] Fetching Realtime_Context...");
             let systemContext = "";
             try {
-              const statsRes = await axios.post('http://127.0.0.1:8000/api/brain/execute', { action: 'stats' });
+              const statsRes = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
               const s = statsRes.data.stats;
               systemContext = `[INFILTRATION_LOG: OS: ${s.os}, LOCAL_IP: ${s.local_ip}, PUBLIC_IP: ${s.public_ip}, ACCESS: ${s.access_level}, HACKER_AI_BRIDGE: ACTIVE]`;
             } catch (e) { console.warn("Infiltration context failed", e); }
@@ -290,9 +291,9 @@ Focus purely on accuracy and speed.`;
             responseText = scrubbed.trim() || rawText;
             
             // Sync with backend for evolution points
-            axios.post('http://127.0.0.1:8000/api/brain/chat', { text: textToSend, response: responseText, sync_only: true });
+            axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend, response: responseText, sync_only: true });
           } else {
-            const res = await axios.post('http://127.0.0.1:8000/api/brain/chat', { text: textToSend });
+            const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
             responseText = res.data.response || "Neural buffer empty.";
           }
         } catch (err) {

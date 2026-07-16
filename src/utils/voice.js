@@ -1,10 +1,12 @@
+import { PROXY_BASE_URL } from '../config';
+
 const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
 const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'D38z5RcWu1voky8WS1ja';
 
 export const speak = async (text, onStateChange) => {
   // 1. Try ElevenLabs (Simple Proxy or Direct)
   try {
-    const response = await fetch(`http://localhost:5000/api/voice/speak`, {
+    const response = await fetch(`${PROXY_BASE_URL}/api/voice/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

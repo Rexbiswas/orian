@@ -1,0 +1,24 @@
+# Exclude backend files and databases from Vercel deployment
+backend/
+memory.db
+
+# Exclude desktop electron builds
+dist-electron/
+dist_electron/
+out/
+main.cjs
+preload.cjs
+
+# Exclude local build output and dependencies
+dist/
+node_modules/
+.env
+.env.*
+*.log
+.git/
+.vercel/
+.github/
+.agents/
+CVS
+.svn
+.hg

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, ShieldAlert, Target } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 
 const HumanSenses = ({ onSenseUpdate }) => {
   const videoRef = useRef(null);
@@ -89,7 +90,7 @@ const HumanSenses = ({ onSenseUpdate }) => {
           formData.append('file', blob);
 
           try {
-            const response = await axios.post('http://127.0.0.1:8000/api/sense/process', formData);
+            const response = await axios.post(`${API_BASE_URL}/api/sense/process`, formData);
             if (response.data.success) {
               const data = response.data.senses;
               const newSenses = {
