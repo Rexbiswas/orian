@@ -14,27 +14,29 @@ export const speak = async (text, onStateChange) => {
       }),
     });
 
-    if (response.ok) {
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      if (onStateChange) onStateChange(true, audio);
-      
-      return new Promise((resolve) => {
-        audio.onended = () => {
-          if (onStateChange) onStateChange(false);
-          resolve();
-        };
-        audio.play().catch(e => {
-          console.error("Audio play failed:", e);
-          if (onStateChange) onStateChange(false);
-          resolve();
-        });
-      });
+    if (!response.ok) {
+      throw new Error(`ElevenLabs speech proxy returned status ${response.status}`);
     }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    if (onStateChange) onStateChange(true, audio);
+    
+    return new Promise((resolve) => {
+      audio.onended = () => {
+        if (onStateChange) onStateChange(false);
+        resolve();
+      };
+      audio.play().catch(e => {
+        console.error("Audio play failed:", e);
+        if (onStateChange) onStateChange(false);
+        resolve();
+      });
+    });
   } catch (error) {
-    console.error('Voice failed:', error);
+    console.error('ElevenLabs voice generation failed, falling back to native TTS:', error);
   }
 
   // 2. Fallback to Native Speech Synthesis
