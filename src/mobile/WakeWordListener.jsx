@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useVoice } from '../context/VoiceContext';
 import { playMicActivate } from '../utils/sound';
 import { WakeLockManager } from './WakeLock';
+import { WAKE_WORD, ENABLE_WAKE_WORD } from '../config';
+import { Capacitor } from '@capacitor/core';
 
 const WakeWordListener = ({ onWake }) => {
   const { isSpeaking, isListening } = useVoice();
@@ -11,6 +13,19 @@ const WakeWordListener = ({ onWake }) => {
   const shouldListenRef = useRef(true);
 
   useEffect(() => {
+    // If running natively on Android via Capacitor, use the native event instead
+    if (Capacitor.isNativePlatform()) {
+        const handleNativeWake = () => {
+            console.log("[WakeWord] NATIVE MATCH DETECTED!");
+            playMicActivate();
+            if (onWake) onWake();
+        };
+        window.addEventListener('nativeWakeWordTriggered', handleNativeWake);
+        return () => window.removeEventListener('nativeWakeWordTriggered', handleNativeWake);
+    }
+
+    if (!ENABLE_WAKE_WORD) return;
+
     // Check Web Speech API browser support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -49,7 +64,7 @@ const WakeWordListener = ({ onWake }) => {
         const transcript = result[0].transcript.trim().toLowerCase();
         console.log(`[WakeWord] Capture: "${transcript}"`);
         
-        if (transcript.includes('hello orian') || transcript.includes('orian')) {
+        if (transcript.includes(WAKE_WORD) || transcript.includes(WAKE_WORD.split(' ')[1])) {
           console.log("[WakeWord] MATCH DETECTED!");
           shouldListenRef.current = false;
           rec.stop();
