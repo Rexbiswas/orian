@@ -11,10 +11,30 @@ export const VoiceProvider = ({ children }) => {
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
 
-  // Microphone analysis stream hooks
+  // Live User Voice Input (Microphone Listening) Analysis
   const micStreamRef = useRef(null);
   const micAnalyserFrameRef = useRef(null);
   const micAudioContextRef = useRef(null);
+  const simIntervalRef = useRef(null);
+
+  const startSimulatedAnalysis = () => {
+    stopSimulatedAnalysis();
+    let t = 0;
+    simIntervalRef.current = setInterval(() => {
+      // Simulate syllables and speech envelope fluctuations
+      t += 0.18;
+      const baseWave = 0.4 + Math.sin(t * 1.6) * 0.35 + Math.sin(t * 0.5) * 0.2;
+      const syllableWave = Math.max(0.1, Math.min(1.0, baseWave));
+      setAudioLevel(syllableWave);
+    }, 45);
+  };
+
+  const stopSimulatedAnalysis = () => {
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+  };
 
   // Live Speech Synthesis (AI Speaking) Analysis
   const startAnalysis = (audioElement) => {
@@ -47,13 +67,23 @@ export const VoiceProvider = ({ children }) => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
+    stopSimulatedAnalysis();
     setAudioLevel(0);
   };
 
   const setSpeakingState = useCallback((state, audioElement = null) => {
     setIsSpeaking(state);
-    if (state && audioElement) {
-      startAnalysis(audioElement);
+    if (state) {
+      if (audioElement) {
+        try {
+          startAnalysis(audioElement);
+        } catch (e) {
+          console.warn("AudioContext blocked or connected. Using simulation fallback.");
+          startSimulatedAnalysis();
+        }
+      } else {
+        startSimulatedAnalysis();
+      }
     } else {
       stopAnalysis();
     }
