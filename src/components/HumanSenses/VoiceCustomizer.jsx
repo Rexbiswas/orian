@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, Sliders, Volume2, UserPlus, Sparkles } from 'lucide-react';
 import axios from 'axios';
+import { PROXY_BASE_URL } from '../../config';
 
 const VoiceCustomizer = () => {
   const [voices, setVoices] = useState([]);
@@ -19,7 +20,7 @@ const VoiceCustomizer = () => {
 
   const fetchVoices = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/voice/list');
+      const res = await axios.get(`${PROXY_BASE_URL}/api/voice/list`);
       setVoices(res.data.voices);
     } catch (err) {
       console.error("Failed to fetch voices");
