@@ -19,13 +19,13 @@ class CerebrumDB:
 
 
     def get_connection(self):
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        self._init_schema_on_conn(conn)
         return conn
 
-    def _init_schema(self):
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        conn = self.get_connection()
+    def _init_schema_on_conn(self, conn):
         c = conn.cursor()
 
         # --- FRONTAL LOBE (Reasoning, Planning, Decisions, Reflection) ---
@@ -91,6 +91,9 @@ class CerebrumDB:
                      (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT, visual_summary TEXT, timestamp TEXT)''')
 
         conn.commit()
+
+    def _init_schema(self):
+        conn = self.get_connection()
         conn.close()
 
     # --- FRONTAL LOBE METHODS ---

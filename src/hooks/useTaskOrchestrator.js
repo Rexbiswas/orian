@@ -8,6 +8,12 @@ export function useTaskOrchestrator() {
   const [tasks, setTasks] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [agentStatuses, setAgentStatuses] = useState({
+    "CORTEX AI": "AUTONOMOUS",
+    "TITAN AI": "STANDBY",
+    "SPECTRA AI": "ANALYZING",
+    "GUARDIAN AI": "PROTECTING"
+  });
   const wsRef = useRef(null);
 
   const addToast = useCallback((title, message, type = 'info') => {
@@ -74,6 +80,11 @@ export function useTaskOrchestrator() {
             } else if (data.event === 'TASKS_ADDED' && data.tasks) {
               setTasks((prev) => [...prev, ...data.tasks]);
               addToast('Multi-Task Dispatched', `${data.tasks.length} parallel actions queued.`, 'info');
+            } else if (data.event === 'AGENT_STATUS_UPDATED' && data.agent) {
+              setAgentStatuses((prev) => ({
+                ...prev,
+                [data.agent]: data.status
+              }));
             }
           } catch (err) {
             console.error('[TaskOrchestrator] WS Parse Error:', err);
@@ -153,6 +164,7 @@ export function useTaskOrchestrator() {
     tasks,
     toasts,
     stats,
+    agentStatuses,
     isConnected,
     dispatchPrompt,
     cancelTask,

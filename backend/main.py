@@ -141,6 +141,14 @@ async def retry_task_endpoint(req: TaskActionRequest):
     success = await task_scheduler.retry_task(req.task_id)
     return {"success": success}
 
+@app.get("/api/agents/status")
+async def list_agents_status():
+    from cerebellum import cerebellum_db
+    return {
+        "success": True,
+        "agents": cerebellum_db.get_agent_statuses()
+    }
+
 
 # Load OpenCV Haar Cascades
 def load_cascade(name):

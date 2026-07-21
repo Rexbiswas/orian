@@ -19,13 +19,13 @@ class BrainstemDB:
 
 
     def get_connection(self):
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        self._init_schema_on_conn(conn)
         return conn
 
-    def _init_schema(self):
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        conn = self.get_connection()
+    def _init_schema_on_conn(self, conn):
         c = conn.cursor()
 
         c.execute('''CREATE TABLE IF NOT EXISTS system_health
@@ -52,8 +52,10 @@ class BrainstemDB:
                      (model_name TEXT PRIMARY KEY, provider TEXT, status TEXT, latency_ms REAL, fallback_model TEXT, last_used TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS recovery_events
                      (id INTEGER PRIMARY KEY AUTOINCREMENT, service_name TEXT, error_reason TEXT, recovery_action TEXT, success INTEGER, timestamp TEXT)''')
-
         conn.commit()
+
+    def _init_schema(self):
+        conn = self.get_connection()
         conn.close()
         self._seed_services()
 

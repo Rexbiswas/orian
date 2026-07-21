@@ -19,13 +19,13 @@ class CerebellumDB:
 
 
     def get_connection(self):
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        self._init_schema_on_conn(conn)
         return conn
 
-    def _init_schema(self):
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        conn = self.get_connection()
+    def _init_schema_on_conn(self, conn):
         c = conn.cursor()
 
         # --- EXECUTION & AGENT TABLES ---
@@ -61,6 +61,9 @@ class CerebellumDB:
                      (timestamp TEXT, action_name TEXT, mistake_desc TEXT, correction TEXT)''')
 
         conn.commit()
+
+    def _init_schema(self):
+        conn = self.get_connection()
         conn.close()
 
         # Seed agents if empty
@@ -68,6 +71,10 @@ class CerebellumDB:
 
     def _seed_default_agents(self):
         default_agents = [
+            ("CORTEX AI", "cortex", "Central Reasoning & Cognitive Planner", "llm_planner, get_cognitive_context"),
+            ("TITAN AI", "titan", "Autonomous Task Execution & System Orchestration", "launch_app, fast_paste, observe_window, run_terminal"),
+            ("SPECTRA AI", "spectra", "Perception, Multimodal Vision & Audio Senses", "sense_vision, speech_recognition, emotion_analysis"),
+            ("GUARDIAN AI", "guardian", "System Vitals, Defense & Infrastructure Shield", "record_security_event, update_vitals, health_check"),
             ("Desktop Agent", "desktop", "OS app launching and window interaction", "launch_app, fast_paste, observe_window"),
             ("Browser Agent", "browser", "Web browsing and Google searching", "web_search"),
             ("Coding Agent", "coding", "Code generation and editor interaction", "llm_code_generator, write_file"),
@@ -140,5 +147,14 @@ class CerebellumDB:
         rows = c.fetchall()
         conn.close()
         return [dict(r) for r in rows]
+
+    def get_agent_statuses(self) -> List[Dict[str, Any]]:
+        conn = self.get_connection()
+        c = conn.cursor()
+        c.execute("SELECT name, status, current_task_id, last_active FROM agent_status")
+        rows = c.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
 
 cerebellum_db = CerebellumDB()

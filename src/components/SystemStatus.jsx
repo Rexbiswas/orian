@@ -3,12 +3,12 @@ import GlassCard from './GlassCard';
 
 const SystemStatus = () => {
   const services = [
-    { name: "Voice Assistant", val: "ONLINE", ok: true },
-    { name: "Speech Recognition", val: "ACTIVE", ok: true },
-    { name: "Web Agent", val: "ACTIVE", ok: true },
-    { name: "Vision Engine (YOLO)", val: "ACTIVE", ok: true },
-    { name: "Database", val: "CONNECTED", ok: true },
-    { name: "Security Layer", val: "ENCRYPTED", ok: true }
+    { name: "CORTEX AI (Reasoning)", val: "AUTONOMOUS", ok: true },
+    { name: "TITAN AI (Orchestrator)", val: "ONLINE", ok: true },
+    { name: "SPECTRA AI (Sensory)", val: "ACTIVE", ok: true },
+    { name: "GUARDIAN AI (Defense)", val: "PROTECTING", ok: true },
+    { name: "Database Cluster", val: "CONNECTED", ok: true },
+    { name: "Security Shield", val: "ENCRYPTED", ok: true }
   ];
 
   return (

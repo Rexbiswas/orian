@@ -32,7 +32,7 @@ const AgentCard = () => {
       <div className="flex flex-col justify-center min-w-0 w-full">
         <span className="text-[6.5px] font-black text-purple-400 uppercase tracking-widest mb-1.5 block">AI Agent Co-Pilot</span>
         <span className="text-[9px] font-bold text-white uppercase tracking-wider leading-none mb-1 truncate">
-          Agent: ANTIGRAVITY v1.0
+          Cluster: CORTEX • TITAN • SPECTRA • GUARDIAN
         </span>
         
         {/* Task telemetry */}

@@ -96,7 +96,7 @@ const Header = ({ evolution = "68.4%" }) => {
         <StatCard icon={Star} label="GPU Usage" value={`${telemetry.gpu}%`} percentage={telemetry.gpu} color="text-cyan-400" glowColor="rgba(0, 229, 255, 0.4)" />
         <StatCard icon={Globe} label="Internet" value={telemetry.internet} percentage={telemetry.internet === 'Connected' ? 100 : 0} color="text-emerald-400" glowColor="rgba(16, 185, 129, 0.4)" />
         <StatCard icon={MapPin} label="Location" value={location} percentage={100} color="text-blue-400" glowColor="rgba(0, 102, 255, 0.4)" />
-        <StatCard icon={Bot} label="Agent" value="ACTIVE" percentage={100} color="text-green-400" glowColor="rgba(0, 255, 136, 0.4)" />
+        <StatCard icon={Bot} label="AI Agents" value="4 ONLINE" percentage={100} color="text-green-400" glowColor="rgba(0, 255, 136, 0.4)" />
         <StatCard icon={Brain} label="Brain Development" value={evolution} percentage={parseFloat(evolution) || 68.4} color="text-purple-400" glowColor="rgba(168, 85, 247, 0.4)" />
       </div>
 
