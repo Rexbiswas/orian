@@ -66,31 +66,11 @@ const VoiceWaveform = ({ isSpeaking, audioLevel, isListening }) => {
 
 import { playMicActivate, playMicDeactivate } from '../utils/sound';
 
-const VoiceInput = ({ isSpeaking, audioLevel, isListening, toggleListening }) => {
+const VoiceInput = ({ isSpeaking, audioLevel, isListening }) => {
   return (
     <GlassCard title="VOICE INPUT" className="w-full lg:w-[28%] flex p-3 items-center gap-3">
 
-      {/* Microphone Button — LEFT side, before waveform */}
-      <div className="relative shrink-0" style={{ minWidth: '44px' }}>
-        {isListening && (
-          <div className="absolute -inset-2 rounded-full border border-purple-500/30 animate-ping pointer-events-none" />
-        )}
-        <button
-          onClick={() => {
-            if (isListening) { playMicDeactivate(); } else { playMicActivate(); }
-            toggleListening();
-          }}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer ${
-            isListening
-              ? 'bg-blue-600/25 border-2 border-blue-500 text-blue-200 shadow-[0_0_22px_rgba(0,102,255,0.7)]'
-              : 'bg-black/60 border border-blue-500/45 text-blue-400 hover:text-blue-200 hover:bg-blue-500/12 hover:shadow-[0_0_16px_rgba(0,102,255,0.5)]'
-          }`}
-        >
-          {isListening ? <MicOff size={16} className="animate-pulse" /> : <Mic size={16} />}
-        </button>
-      </div>
-
-      {/* Waveform Column — RIGHT side */}
+      {/* Waveform Column */}
       <div className="flex-1 flex flex-col h-full justify-between overflow-hidden">
         <div
           className="h-8 w-full rounded-md overflow-hidden relative"
@@ -110,7 +90,7 @@ const VoiceInput = ({ isSpeaking, audioLevel, isListening, toggleListening }) =>
           <span className={`text-[7px] font-mono tracking-widest transition-colors duration-300 ${
             isListening ? 'text-blue-300' : 'text-slate-600'
           }`}>
-            {isListening ? 'LISTENING ACTIVE' : 'STANDBY MODE'}
+            {isListening ? 'LISTENING ACTIVE (AUTOMATED VAD)' : 'STANDBY MODE'}
           </span>
         </div>
       </div>

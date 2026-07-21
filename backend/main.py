@@ -253,7 +253,37 @@ def execute_neural_command(text: str):
         result = neural_sys.download_skill(category)
         return result
 
-    # 3. Habitual Interaction (Pattern Learning)
+    # 3. Desktop Automation Commands (Folders, Latest Files, Agents, Search)
+    if "folder" in text:
+        folder_query = text.replace("open my ", "").replace("open ", "").replace("folder", "").strip()
+        success, msg = brain.open_folder(folder_query)
+        return msg
+
+    if "latest" in text and ("file" in text or "excel" in text or "pdf" in text or "word" in text or "ppt" in text):
+        file_type = "excel"
+        if "pdf" in text: file_type = "pdf"
+        elif "word" in text: file_type = "word"
+        elif "ppt" in text or "powerpoint" in text: file_type = "powerpoint"
+        elif "image" in text: file_type = "image"
+        elif "video" in text: file_type = "video"
+        success, msg = brain.open_latest_file(file_type)
+        return msg
+
+    if "search for" in text or ("chrome" in text and "search" in text):
+        query = text.split("search for ")[-1] if "search for " in text else text.split("search ")[-1]
+        success, msg = brain.open_browser_search(query)
+        return msg
+
+    if "find my" in text or "find file" in text or "find project" in text:
+        query = text.replace("find my ", "").replace("find file ", "").replace("find project ", "").replace("find ", "").strip()
+        success, msg = brain.search_files(query)
+        return msg
+
+    if "agent" in text or "workflow" in text or "summarize" in text:
+        success, msg = brain.run_agent_workflow(text, payload=text)
+        return msg
+
+    # 4. Habitual Interaction (Pattern Learning)
     if "open" in text or "start" in text or "launch" in text:
         action = text.replace("orian", "").strip()
         neural_sys.record_action(action)
@@ -264,7 +294,7 @@ def execute_neural_command(text: str):
         else:
             return f"Action {app_name} queued, but executable not found. Teaching required?"
 
-    # 4. Pattern Prediction
+    # 5. Pattern Prediction
     if "predict" in text:
         prediction = neural_sys.predict_next_action()
         if prediction["prediction"]:
@@ -322,7 +352,7 @@ async def process_voice(file: UploadFile = File(...)):
 # --- BRAIN: COGNITIVE & DESKTOP ENDPOINTS ---
 
 class DesktopAction(BaseModel):
-    action: str # 'type', 'press', 'screenshot', 'stats'
+    action: str # 'type', 'press', 'screenshot', 'stats', 'folder', 'latest_file', 'web_search', 'search_file', 'agent'
     payload: Optional[str] = None
     key: Optional[str] = None
 
@@ -343,7 +373,27 @@ async def execute_brain_action(data: DesktopAction):
         
         elif data.action == "launch":
             success = brain.launch_app(data.payload)
-            return {"success": success, "message": f"Launched {data.payload}" if success else "Failed"}
+            return {"success": success, "message": f"Launched {data.payload}" if success else f"Could not launch {data.payload}"}
+
+        elif data.action == "folder":
+            success, msg = brain.open_folder(data.payload or "downloads")
+            return {"success": success, "message": msg}
+
+        elif data.action == "latest_file":
+            success, msg = brain.open_latest_file(data.payload or "excel")
+            return {"success": success, "message": msg}
+
+        elif data.action == "web_search":
+            success, msg = brain.open_browser_search(data.payload or "")
+            return {"success": success, "message": msg}
+
+        elif data.action == "search_file":
+            success, msg = brain.search_files(data.payload or "")
+            return {"success": success, "message": msg}
+
+        elif data.action == "agent":
+            success, msg = brain.run_agent_workflow(data.payload or "agent", data.payload or "")
+            return {"success": success, "message": msg}
         
         elif data.action == "stats":
             stats = brain.get_system_stats()

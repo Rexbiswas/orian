@@ -13,5 +13,5 @@ python-multipart
 python-docx
 pywin32; platform_system == 'Windows'
 SpeechRecognition
-pyaudio
+# pyaudio (optional; SpeechRecognition uses built-in audioop-lts/standard-aifc)
 pydub

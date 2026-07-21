@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { Send, Terminal, Cpu, Sparkles, X, Mic, MicOff, Command } from 'lucide-react';
+import { AudioLines, Terminal, Cpu, Sparkles, X, Command } from 'lucide-react';
 import { useLogs } from '../context/LogContext';
 import { useVoice } from '../context/VoiceContext';
 import { speak } from '../utils/voice';
@@ -394,32 +394,21 @@ Focus purely on accuracy and speed.`;
 
       {/* Input Area */}
       <div className="p-4 border-t border-white/5 bg-white/2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={isListening ? "Listening..." : "Initialize neural query..."}
-              className={`w-full bg-black/40 border ${isListening ? 'border-brand-cyan/60' : 'border-white/10'} rounded-xl px-4 py-2.5 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-cyan/40 transition-all`}
-            />
-            <button
-              onClick={() => handleSend()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-brand-cyan transition-colors"
-            >
-              <Send size={14} />
-            </button>
-          </div>
-
+        <div className="relative w-full">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder={isListening ? "Listening..." : "Initialize neural query..."}
+            className={`w-full bg-black/40 border ${isListening ? 'border-brand-cyan/60' : 'border-white/10'} rounded-xl px-4 py-2.5 pr-9 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-cyan/40 transition-all`}
+          />
           <button
-            onClick={toggleListening}
-            className={`p-2.5 rounded-xl border transition-all ${isListening
-                ? 'bg-brand-cyan/20 border-brand-cyan text-brand-cyan shadow-[0_0_15px_rgba(0,242,255,0.2)] animate-pulse'
-                : 'bg-white/5 border-white/10 text-slate-500 hover:text-brand-cyan hover:border-brand-cyan/40'
-              }`}
+            onClick={() => toggleListening()}
+            title="Speech to Text"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-brand-cyan transition-colors"
           >
-            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            <AudioLines size={14} className={isListening ? "animate-pulse text-brand-cyan" : ""} />
           </button>
         </div>
       </div>

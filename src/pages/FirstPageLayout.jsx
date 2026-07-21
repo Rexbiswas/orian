@@ -6,7 +6,7 @@ import { VoiceProvider, useVoice } from '../context/VoiceContext';
 import { speak } from '../utils/voice';
 import { AudioRecorder } from '../utils/audioRecorder';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, Send, Mic, MicOff } from 'lucide-react';
+import { MessageSquare, X, AudioLines } from 'lucide-react';
 import WakeWordListener from '../mobile/WakeWordListener';
 
 // Eagerly loaded components
@@ -54,27 +54,113 @@ const FirstPageLayoutContent = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const recorderRef   = useRef(new AudioRecorder());
-  const greetedRef    = useRef(false); // prevent double-fire from StrictMode
+  const recorderRef = useRef(new AudioRecorder());
+  const greetedRef = useRef(false);
+  const autoListenRef = useRef(true);
+  const recognitionRef = useRef(null);
 
-  // Initial greeting — guarded by ref so it only fires once even in StrictMode
-  useEffect(() => {
-    if (greetedRef.current) return;
-    greetedRef.current = true;
-
-    const greet = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
-        setAiOutput(res.data.greeting);
-        addLog('VOICE_LINK_ESTABLISHED', 'SYS', 'SUCCESS');
-        await speak(res.data.greeting, setSpeakingState);
-      } catch (e) {
-        const fallback = "Hello master, I am Orian. Neural systems established.";
-        setAiOutput(fallback);
-        await speak(fallback, setSpeakingState);
+  // VAD Speech Recognition / Hands-Free Loop Trigger
+  const startVADListening = useCallback(() => {
+    if (!autoListenRef.current) return;
+    const SpeechRecognition = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+    
+    if (SpeechRecognition) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
       }
+      const rec = new SpeechRecognition();
+      recognitionRef.current = rec;
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+
+      let finalTranscript = '';
+
+      rec.onstart = () => {
+        setIsListening(true);
+        addLog('VAD_LISTENING_ACTIVE', 'MIC', 'INFO');
+      };
+
+      rec.onresult = (event) => {
+        let currentInterim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            currentInterim += transcript;
+          }
+        }
+        const textSoFar = finalTranscript || currentInterim;
+        if (textSoFar.trim()) {
+          setInput(textSoFar);
+        }
+      };
+
+      rec.onerror = (event) => {
+        console.warn("VAD speech recognition error:", event.error);
+        setIsListening(false);
+        if (autoListenRef.current && (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network')) {
+          setTimeout(() => {
+            if (autoListenRef.current) startVADListening();
+          }, 600);
+        }
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+        if (finalTranscript.trim()) {
+          const textToProcess = finalTranscript.trim();
+          setInput('');
+          handleSend(textToProcess);
+        } else if (autoListenRef.current) {
+          setTimeout(() => {
+            if (autoListenRef.current) startVADListening();
+          }, 500);
+        }
+      };
+
+      try {
+        rec.start();
+      } catch (err) {
+        console.warn("SpeechRecognition start fault:", err);
+        setIsListening(false);
+      }
+    } else {
+      toggleListening();
+    }
+  }, [setIsListening, addLog]);
+
+  // Initial greeting & user interaction listener
+  useEffect(() => {
+    const enableAudioAndListen = () => {
+      autoListenRef.current = true;
+      startVADListening();
     };
-    greet();
+
+    window.addEventListener('click', enableAudioAndListen, { once: false });
+    window.addEventListener('keydown', enableAudioAndListen, { once: false });
+
+    if (!greetedRef.current) {
+      greetedRef.current = true;
+
+      const greet = async () => {
+        try {
+          const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
+          setAiOutput(res.data.greeting);
+          addLog('VOICE_LINK_ESTABLISHED', 'SYS', 'SUCCESS');
+          await speak(res.data.greeting, setSpeakingState);
+        } catch (e) {
+          const fallback = "Hello master, I am Orian. Neural systems established.";
+          setAiOutput(fallback);
+          await speak(fallback, setSpeakingState);
+        } finally {
+          autoListenRef.current = true;
+          startVADListening();
+        }
+      };
+      greet();
+    }
 
     // Fetch brain evolution metrics
     const fetchEvo = async () => {
@@ -86,7 +172,12 @@ const FirstPageLayoutContent = () => {
       } catch (err) {}
     };
     fetchEvo();
-  }, []); // empty dep array — intentionally runs once on mount only
+
+    return () => {
+      window.removeEventListener('click', enableAudioAndListen);
+      window.removeEventListener('keydown', enableAudioAndListen);
+    };
+  }, [setSpeakingState, addLog, startVADListening]);
 
   // Handle webcam sense feeds
   const handleSenseUpdate = useCallback((senses) => {
@@ -96,27 +187,17 @@ const FirstPageLayoutContent = () => {
   const handleWake = useCallback(() => {
     addLog('WAKE_WORD_SPOTTED: "HELLO ORIAN"', 'BRAIN', 'SUCCESS');
     setIsChatOpen(true);
-    
-    // Automatically trigger mic listening after a tiny delay so the wake chime finishes playing
-    setTimeout(async () => {
-      try {
-        await recorderRef.current.start();
-        setIsListening(true);
-        addLog('VOICE_MIC_UPLINK_ESTABLISHED', 'MIC', 'SUCCESS');
-      } catch (err) {
-        console.error("Mic start failed on wake:", err);
-      }
-    }, 450);
-  }, [setIsListening]);
+    autoListenRef.current = true;
+    startVADListening();
+  }, [addLog, startVADListening]);
 
   const handleCtaClick = () => {
     setIsChatOpen(true);
-    // Safely trigger mobile browser permission bypass
     const triggerBtn = document.getElementById('wake-word-permission-trigger');
     if (triggerBtn) triggerBtn.click();
   };
 
-  // Toggle voice command recording
+  // Toggle voice command recording (fallback method)
   const toggleListening = async () => {
     if (isListening) {
       setIsListening(false);
@@ -152,7 +233,7 @@ const FirstPageLayoutContent = () => {
     }
   };
 
-  // Submit Text Commands
+  // Submit Commands & Desktop Actions
   const handleSend = async (overrideInput = null) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
@@ -162,55 +243,67 @@ const FirstPageLayoutContent = () => {
 
     try {
       const commandLower = textToSend.toLowerCase();
+      let feedback = '';
 
-      // Launch application triggers
-      if (commandLower.includes('open') || commandLower.includes('launch')) {
+      if (commandLower.includes('download') && commandLower.includes('folder')) {
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'folder', payload: 'downloads' });
+        feedback = res.data.message || "Opened your Downloads folder.";
+      } else if (commandLower.includes('folder')) {
+        const folder = commandLower.replace('open my ', '').replace('open ', '').replace(' folder', '').trim();
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'folder', payload: folder });
+        feedback = res.data.message || `Opened ${folder} folder.`;
+      } else if (commandLower.includes('latest') && (commandLower.includes('file') || commandLower.includes('excel') || commandLower.includes('pdf') || commandLower.includes('word') || commandLower.includes('ppt'))) {
+        let type = 'excel';
+        if (commandLower.includes('pdf')) type = 'pdf';
+        else if (commandLower.includes('word')) type = 'word';
+        else if (commandLower.includes('ppt') || commandLower.includes('powerpoint')) type = 'powerpoint';
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'latest_file', payload: type });
+        feedback = res.data.message || `Opened latest ${type} file.`;
+      } else if (commandLower.includes('search for') || (commandLower.includes('chrome') && commandLower.includes('search'))) {
+        const query = commandLower.split('search for ')[1] || commandLower.split('search ')[1] || commandLower;
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'web_search', payload: query });
+        feedback = res.data.message || `Initiated web search for ${query}.`;
+      } else if (commandLower.includes('find my') || commandLower.includes('find file') || commandLower.includes('find project')) {
+        const query = commandLower.replace('find my ', '').replace('find file ', '').replace('find project ', '').replace('find ', '').trim();
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'search_file', payload: query });
+        feedback = res.data.message || `Searching for ${query}...`;
+      } else if (commandLower.includes('agent') || commandLower.includes('workflow') || commandLower.includes('summarize')) {
+        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'agent', payload: textToSend });
+        feedback = res.data.message || "Dispatched AI Agent workflow.";
+      } else if (commandLower.includes('open') || commandLower.includes('launch')) {
         const app = commandLower.replace('open ', '').replace('launch ', '').trim();
         addLog(`COMMAND_LAUNCH: ${app.toUpperCase()}`, 'BRAIN', 'INFO');
         const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'launch', payload: app });
-        
-        const feedback = res.data.success 
-          ? `Access Granted. Executing launch sequence for ${app}.`
-          : `Launch sequence failed for ${app}. Core executable was not found.`;
-        setAiOutput(feedback);
-        addLog(res.data.success ? `LAUNCH_SUCCESS: ${app}` : `LAUNCH_FAIL: ${app}`, 'SYS', res.data.success ? 'SUCCESS' : 'ERROR');
-        await speak(feedback, setSpeakingState);
-      } 
-      else if (commandLower.match(/(volume|sound|audio|mute)/i)) {
+        feedback = res.data.message || (res.data.success ? `Executing launch sequence for ${app}.` : `Launch failed for ${app}.`);
+      } else if (commandLower.match(/(volume|sound|audio|mute)/i)) {
         const vol = commandLower.match(/\d+/)?.[0] || "50";
         const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'volume', key: vol });
-        const feedback = res.data.success ? res.data.message : `Telemetry error: Failed to adjust core volume.`;
-        setAiOutput(feedback);
-        await speak(feedback, setSpeakingState);
-      }
-      else if (commandLower.match(/(bright|brit|light)/i) && commandLower.includes('to')) {
+        feedback = res.data.success ? res.data.message : `Telemetry error: Failed to adjust volume.`;
+      } else if (commandLower.match(/(bright|brit|light)/i) && commandLower.includes('to')) {
         const level = commandLower.match(/\d+/)?.[0] || "100";
         const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'brightness', key: level });
-        const feedback = res.data.success ? res.data.message : `Telemetry error: Failed to calibrate system screen.`;
-        setAiOutput(feedback);
-        await speak(feedback, setSpeakingState);
-      }
-      else if (commandLower.includes('screenshot')) {
+        feedback = res.data.success ? res.data.message : `Telemetry error: Failed to calibrate display.`;
+      } else if (commandLower.includes('screenshot')) {
         await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'screenshot' });
-        const feedback = "Screen capture complete. Frame coordinates exported to central database.";
-        setAiOutput(feedback);
-        await speak(feedback, setSpeakingState);
-      }
-      else if (commandLower.includes('stats') || commandLower.includes('status')) {
+        feedback = "Screen capture complete. Snapshot exported to central database.";
+      } else if (commandLower.includes('stats') || commandLower.includes('status')) {
         const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
         const s = res.data.stats;
-        const feedback = `System Status Report: CPU utilizing ${s.cpu_usage}%, Memory using ${s.memory_usage}%. Core network nodes active: ${s.active_apps}.`;
-        setAiOutput(feedback);
-        await speak(feedback, setSpeakingState);
-      }
-      else {
-        // Fallback: Post to local FastAPI chat
+        feedback = `System Status: CPU ${s.cpu_usage}%, RAM ${s.memory_usage}%. Core active apps: ${s.active_apps}.`;
+      } else {
         const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
-        const feedback = res.data.response || "Neural query executed successfully.";
-        setAiOutput(feedback);
-        addLog('QUERY_RESPONSE_SYNCED', 'SYS', 'SUCCESS');
-        await speak(feedback, setSpeakingState);
+        feedback = res.data.response || "Neural query executed successfully.";
       }
+
+      setAiOutput(feedback);
+      addLog('QUERY_RESPONSE_SYNCED', 'SYS', 'SUCCESS');
+      await speak(feedback, setSpeakingState);
+
+      // Hands-free continuous loop resumption
+      if (autoListenRef.current) {
+        startVADListening();
+      }
+
     } catch (err) {
       console.error("Query fail:", err);
       addLog('NEURAL_CORE_LINK_FAULT', 'SYS', 'ERROR');
@@ -227,12 +320,13 @@ const FirstPageLayoutContent = () => {
         isSpeaking={isSpeaking} 
         audioLevel={audioLevel} 
         isListening={isListening} 
-        toggleListening={toggleListening} 
       />
       <TextCommand 
         input={input} 
         setInput={setInput} 
         handleSend={handleSend} 
+        isListening={isListening}
+        toggleSTT={startVADListening}
       />
       <LiveOutput 
         aiOutput={aiOutput} 
@@ -249,7 +343,7 @@ const FirstPageLayoutContent = () => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(0,102,255,0.06),transparent_80%)] pointer-events-none z-0" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(0,229,255,0.04),transparent_65%)] pointer-events-none z-0" />
 
-          {/* Full Screen Neural Schema Background — size decreased for mobile performance */}
+          {/* Full Screen Neural Schema Background */}
           <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none opacity-60 overflow-hidden scale-[1.1] sm:scale-[1.25]">
             <Suspense fallback={null}>
               <CircularCore 
@@ -321,31 +415,21 @@ const FirstPageLayoutContent = () => {
                 {/* Input section Section */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
-                    <button 
-                      onClick={toggleListening}
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 cursor-pointer ${
-                        isListening 
-                        ? 'bg-cyan-500/25 border border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,229,255,0.5)] animate-pulse'
-                        : 'bg-[#050B20]/80 border border-cyan-500/30 text-cyan-400 hover:text-cyan-200'
-                      }`}
-                    >
-                      {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                    </button>
-
                     <div className="flex-1 relative flex items-center">
                       <input 
                         type="text" 
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Type your command..."
-                        className="w-full bg-[#050B20]/80 border border-cyan-400/30 rounded-xl px-4 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono"
+                        placeholder={isListening ? "Listening..." : "Type your command..."}
+                        className="w-full bg-[#050B20]/80 border border-cyan-400/30 rounded-xl px-4 py-3 pr-10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono"
                       />
                       <button 
-                        onClick={() => handleSend()}
+                        onClick={() => startVADListening()}
+                        title="Speech to Text"
                         className="absolute right-3.5 text-cyan-400 hover:text-cyan-200 transition-colors p-1.5 cursor-pointer"
                       >
-                        <Send size={15} />
+                        <AudioLines size={15} className={isListening ? "animate-pulse text-cyan-200" : ""} />
                       </button>
                     </div>
                   </div>
