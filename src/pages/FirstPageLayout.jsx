@@ -18,7 +18,10 @@ import TextCommand from '../components/TextCommand';
 import LiveOutput from '../components/LiveOutput';
 import HUDSkeleton from '../components/HUDSkeleton';
 
-// Lazy loaded heavy components
+import LiveTaskDashboard from '../components/LiveTaskDashboard';
+import NotificationToastSystem from '../components/NotificationToastSystem';
+import { useTaskOrchestrator } from '../hooks/useTaskOrchestrator';
+
 const NeuralSchema = lazy(() => import('../components/NeuralSchema'));
 const CircularCore = lazy(() => import('../components/CircularCore'));
 const EmotionDetection = lazy(() => import('../components/EmotionDetection'));
@@ -27,9 +30,12 @@ const AICore = lazy(() => import('../components/AICore'));
 const ActiveAutomations = lazy(() => import('../components/ActiveAutomations'));
 const SystemStatus = lazy(() => import('../components/SystemStatus'));
 
+
+
 const FirstPageLayoutContent = () => {
   const { logs, addLog } = useLogs();
-  const { isSpeaking, isListening, audioLevel, setIsListening, setSpeakingState } = useVoice();
+  const { isSpeaking, isListening, audioLevel, setIsListening, setSpeakingState, registerSpeechEndCallback } = useVoice();
+  const { tasks, toasts, stats, isConnected, dispatchPrompt, cancelTask, retryTask, removeToast } = useTaskOrchestrator();
   
   const [currentSenses, setCurrentSenses] = useState({
     emotion: 'NEUTRAL',
@@ -38,6 +44,7 @@ const FirstPageLayoutContent = () => {
     faceCenter: { x: 0.5, y: 0.5 },
     spatial: { azimuth: 0, distance: 0.6 }
   });
+
   
   const [input, setInput] = useState('');
   const [aiOutput, setAiOutput] = useState('ORIAN AI OS initialized. All neural cores synced.');
@@ -242,54 +249,12 @@ const FirstPageLayoutContent = () => {
     addLog(`INITIALIZING_QUERY: "${textToSend}"`, 'EXEC', 'INFO');
 
     try {
-      const commandLower = textToSend.toLowerCase();
-      let feedback = '';
-
-      if (commandLower.includes('download') && commandLower.includes('folder')) {
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'folder', payload: 'downloads' });
-        feedback = res.data.message || "Opened your Downloads folder.";
-      } else if (commandLower.includes('folder')) {
-        const folder = commandLower.replace('open my ', '').replace('open ', '').replace(' folder', '').trim();
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'folder', payload: folder });
-        feedback = res.data.message || `Opened ${folder} folder.`;
-      } else if (commandLower.includes('latest') && (commandLower.includes('file') || commandLower.includes('excel') || commandLower.includes('pdf') || commandLower.includes('word') || commandLower.includes('ppt'))) {
-        let type = 'excel';
-        if (commandLower.includes('pdf')) type = 'pdf';
-        else if (commandLower.includes('word')) type = 'word';
-        else if (commandLower.includes('ppt') || commandLower.includes('powerpoint')) type = 'powerpoint';
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'latest_file', payload: type });
-        feedback = res.data.message || `Opened latest ${type} file.`;
-      } else if (commandLower.includes('search for') || (commandLower.includes('chrome') && commandLower.includes('search'))) {
-        const query = commandLower.split('search for ')[1] || commandLower.split('search ')[1] || commandLower;
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'web_search', payload: query });
-        feedback = res.data.message || `Initiated web search for ${query}.`;
-      } else if (commandLower.includes('find my') || commandLower.includes('find file') || commandLower.includes('find project')) {
-        const query = commandLower.replace('find my ', '').replace('find file ', '').replace('find project ', '').replace('find ', '').trim();
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'search_file', payload: query });
-        feedback = res.data.message || `Searching for ${query}...`;
-      } else if (commandLower.includes('agent') || commandLower.includes('workflow') || commandLower.includes('summarize')) {
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'agent', payload: textToSend });
-        feedback = res.data.message || "Dispatched AI Agent workflow.";
-      } else if (commandLower.includes('open') || commandLower.includes('launch')) {
-        const app = commandLower.replace('open ', '').replace('launch ', '').trim();
-        addLog(`COMMAND_LAUNCH: ${app.toUpperCase()}`, 'BRAIN', 'INFO');
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'launch', payload: app });
-        feedback = res.data.message || (res.data.success ? `Executing launch sequence for ${app}.` : `Launch failed for ${app}.`);
-      } else if (commandLower.match(/(volume|sound|audio|mute)/i)) {
-        const vol = commandLower.match(/\d+/)?.[0] || "50";
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'volume', key: vol });
-        feedback = res.data.success ? res.data.message : `Telemetry error: Failed to adjust volume.`;
-      } else if (commandLower.match(/(bright|brit|light)/i) && commandLower.includes('to')) {
-        const level = commandLower.match(/\d+/)?.[0] || "100";
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'setting', payload: 'brightness', key: level });
-        feedback = res.data.success ? res.data.message : `Telemetry error: Failed to calibrate display.`;
-      } else if (commandLower.includes('screenshot')) {
-        await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'screenshot' });
-        feedback = "Screen capture complete. Snapshot exported to central database.";
-      } else if (commandLower.includes('stats') || commandLower.includes('status')) {
-        const res = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
-        const s = res.data.stats;
-        feedback = `System Status: CPU ${s.cpu_usage}%, RAM ${s.memory_usage}%. Core active apps: ${s.active_apps}.`;
+      // 1. Dispatch prompt to Autonomous Task Orchestrator & LLM Planner
+      const dispatchRes = await dispatchPrompt(textToSend);
+      
+      let feedback = "";
+      if (dispatchRes && dispatchRes.count > 0) {
+        feedback = `Right away. Dispatched ${dispatchRes.count} action${dispatchRes.count > 1 ? 's' : ''} in real time.`;
       } else {
         const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
         feedback = res.data.response || "Neural query executed successfully.";
@@ -297,19 +262,21 @@ const FirstPageLayoutContent = () => {
 
       setAiOutput(feedback);
       addLog('QUERY_RESPONSE_SYNCED', 'SYS', 'SUCCESS');
+
+      // Speak Jarvis immediate acknowledgment
       await speak(feedback, setSpeakingState);
 
       // Hands-free continuous loop resumption
       if (autoListenRef.current) {
         startVADListening();
       }
-
     } catch (err) {
       console.error("Query fail:", err);
       addLog('NEURAL_CORE_LINK_FAULT', 'SYS', 'ERROR');
       setAiOutput("System Warning: Communication fault on local neural socket.");
     }
   };
+
 
   // Compile Header & Footer elements
   const header = <Header evolution={evolution} />;
@@ -494,11 +461,14 @@ const FirstPageLayoutContent = () => {
             </Suspense>
           </div>
 
+
         </div>
       </HUDContainer>
+      <NotificationToastSystem toasts={toasts} onRemove={removeToast} />
       <WakeWordListener onWake={handleWake} />
     </>
   );
+
 };
 
 const FirstPageLayout = () => (

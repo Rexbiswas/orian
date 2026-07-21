@@ -269,21 +269,36 @@ class CognitiveBrain:
         conn.close()
         return rows
 
-    # --- DESKTOP ACTIONS ---
-    def get_active_windows(self):
-        windows = gw.getAllTitles()
-        return [w for w in windows if w.strip()]
+    def focus_app(self, app_name):
+        try:
+            titles = [t for t in gw.getAllTitles() if app_name.lower() in t.lower()]
+            if titles:
+                win = gw.getWindowsWithTitle(titles[0])[0]
+                win.activate()
+                return True
+        except:
+            pass
+        return False
 
-    def take_screenshot(self, filename="last_screen.png"):
-        screenshot = pyautogui.screenshot()
-        screenshot.save(filename)
-        return os.path.abspath(filename)
+    def paste_text(self, text):
+        """Pastes formatted multi-line text into active focused window in real time."""
+        import subprocess
+        try:
+            cmd = ["powershell", "-Command", "Set-Clipboard -Value $Input"]
+            subprocess.run(cmd, input=text, text=True, capture_output=True)
+            time.sleep(0.15)
+            pyautogui.hotkey('ctrl', 'v')
+            return True
+        except Exception as e:
+            pyautogui.write(text, interval=0.005)
+            return False
 
     def type_text(self, text):
-        pyautogui.write(text, interval=0.1)
+        pyautogui.write(text, interval=0.01)
 
     def press_key(self, key):
         pyautogui.press(key)
+
 
     # --- CROSS-APP INTELLIGENCE ---
     def read_pdf(self, file_path):

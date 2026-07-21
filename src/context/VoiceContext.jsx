@@ -71,6 +71,15 @@ export const VoiceProvider = ({ children }) => {
     setAudioLevel(0);
   };
 
+  const onSpeechEndCallbacks = useRef([]);
+
+  const registerSpeechEndCallback = useCallback((cb) => {
+    onSpeechEndCallbacks.current.push(cb);
+    return () => {
+      onSpeechEndCallbacks.current = onSpeechEndCallbacks.current.filter((c) => c !== cb);
+    };
+  }, []);
+
   const setSpeakingState = useCallback((state, audioElement = null) => {
     setIsSpeaking(state);
     if (state) {
@@ -86,6 +95,10 @@ export const VoiceProvider = ({ children }) => {
       }
     } else {
       stopAnalysis();
+      // Notify speech end callbacks to auto reactivate mic
+      onSpeechEndCallbacks.current.forEach((cb) => {
+        try { cb(); } catch (e) {}
+      });
     }
   }, []);
 

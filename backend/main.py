@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 try:
     import cv2
@@ -16,6 +16,8 @@ from llm_core import llm
 from pydantic import BaseModel
 from typing import Optional, List
 import random
+from task_scheduler import task_scheduler, ws_manager
+
 
 # --- NEURAL EMOTION LEXICON (400+ Nuanced States) ---
 # --- NEURAL EMOTION LEXICON (1200+ Nuanced States) ---
@@ -82,6 +84,63 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    task_scheduler.start()
+
+class MultiPromptRequest(BaseModel):
+    prompt: str
+
+class TaskActionRequest(BaseModel):
+    task_id: str
+
+@app.websocket("/ws/tasks")
+async def websocket_tasks(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        # Send initial full state upon connection
+        await websocket.send_json({
+            "event": "INITIAL_STATE",
+            "all_tasks": task_scheduler.get_all_tasks()
+        })
+        while True:
+            data = await websocket.receive_text()
+            # Handle incoming ping/pong or client commands over WebSocket if needed
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        ws_manager.disconnect(websocket)
+
+@app.post("/api/tasks/dispatch")
+async def dispatch_tasks(request: MultiPromptRequest):
+    tasks = await task_scheduler.add_prompt(request.prompt)
+    return {
+        "success": True,
+        "count": len(tasks),
+        "tasks": [t.to_dict() for t in tasks],
+        "all_tasks": task_scheduler.get_all_tasks()
+    }
+
+@app.get("/api/tasks/list")
+async def list_tasks():
+    return {
+        "success": True,
+        "tasks": task_scheduler.get_all_tasks()
+    }
+
+@app.post("/api/tasks/cancel")
+async def cancel_task_endpoint(req: TaskActionRequest):
+    success = await task_scheduler.cancel_task(req.task_id)
+    return {"success": success}
+
+@app.post("/api/tasks/retry")
+async def retry_task_endpoint(req: TaskActionRequest):
+    success = await task_scheduler.retry_task(req.task_id)
+    return {"success": success}
+
 
 # Load OpenCV Haar Cascades
 def load_cascade(name):
@@ -334,18 +393,24 @@ async def process_voice(file: UploadFile = File(...)):
             audio = recognizer.record(source)
             text = recognizer.recognize_google(audio)
             
-        # 3. Neural Execution
-        response_text = execute_neural_command(text)
-        if not response_text:
+        # 3. Neural Autonomous Multi-Task Execution
+        dispatched_tasks = await task_scheduler.add_prompt(text)
+
+        if dispatched_tasks:
+            response_text = f"Right away. Initiating {len(dispatched_tasks)} real-time action{ 's' if len(dispatched_tasks) > 1 else '' }: {text}."
+        else:
             response_text = f"Acknowledged: {text}"
             
         brain.store_interaction(text, response_text, "VOICE_COMMAND")
+
         
         return {
             "success": True,
             "transcript": text,
-            "response": response_text
+            "response": response_text,
+            "tasks_dispatched": len(dispatched_tasks)
         }
+
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -442,17 +507,18 @@ async def chat_with_brain(request: dict):
             brain.store_interaction(text, provided_response, "PUTER_JS_SYNC")
             return {"success": True, "response": provided_response}
 
-        # 1. Try specialized Neural Commands first
-        response = execute_neural_command(text)
-        
-        # 2. If no command matched, use the Humanoid LLM Reasoning
-        if not response:
-            # Get context from Orian's current state correctly
+        # Automatically parse and dispatch prompt through Autonomous LLM Planner & Task Scheduler
+        dispatched_tasks = await task_scheduler.add_prompt(text)
+
+        if dispatched_tasks:
+            task_summaries = ", ".join([f"'{t.command}'" for t in dispatched_tasks])
+            response = f"Right away. Executing {len(dispatched_tasks)} real-time action{ 's' if len(dispatched_tasks) > 1 else '' }: {task_summaries}."
+        else:
+            # Conversational / QA query
             aff, level, count = personality.get_relationship_data()
             p_state, p_desc = personality.get_time_personality()
             stats = brain.get_system_stats()
             
-            # Inject REAL-TIME system telemetry into the context
             context = (
                 f"Relationship: {level} (Affinity: {aff}), Personality: {p_state}\n"
                 f"System_Realtime: CPU {stats['cpu_usage']}%, RAM {stats['memory_usage']}%\n"
@@ -460,19 +526,53 @@ async def chat_with_brain(request: dict):
             )
             
             response = llm.generate_response(text, context)
-            # LLM interactions provide growth experience
             neural_sys.add_neural_exp(2) 
             
+        from brain_manager import brain_manager
+        brain_manager.record_interaction(text, response, "CHAT_PANEL")
         brain.store_interaction(text, response, "CHAT_PANEL")
-        return {"success": True, "response": response}
+
+        return {
+            "success": True, 
+            "response": response, 
+            "tasks_dispatched": len(dispatched_tasks),
+            "tasks": [t.to_dict() for t in dispatched_tasks]
+        }
+
     except Exception as e:
         print(f"[BrainCore] Chat Fault: {str(e)}")
         return {"success": False, "response": f"Neural Core Fault: {str(e)}"}
 
+@app.get("/api/brain/status")
+async def get_brain_status():
+    from brain_manager import brain_manager
+    return brain_manager.get_brain_status_summary()
+
+@app.get("/api/tools/list")
+async def get_tools_list():
+    from tools import tool_registry
+    return {
+        "success": True,
+        "tools": tool_registry.get_all_schemas()
+    }
+
+@app.get("/api/memory/summary")
+async def get_memory_summary():
+    from brain_manager import brain_manager
+    return {
+        "success": True,
+        "summary": brain_manager.get_cognitive_context(),
+        "project": brain_manager.cerebrum.get_last_project()
+    }
+
+
 @app.post("/api/brain/memory/store")
 async def store_memory(item: MemoryItem):
+    from brain_manager import brain_manager
+    brain_manager.record_interaction(item.user_input, item.bot_response, item.context)
     brain.store_interaction(item.user_input, item.bot_response, item.context)
     return {"success": True}
+
 
 @app.get("/api/brain/memory/recall")
 async def recall_memory(limit: int = 5):
