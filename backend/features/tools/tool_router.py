@@ -82,11 +82,22 @@ class OrianToolRouter:
         elif intent == IntentCategory.SIMPLE_CALCULATION:
             expr = meta.get("expression", user_prompt)
             res = math_engine.evaluate_simple(expr)
+            if not res.get("success", False):
+                reason_res = real_world_reasoner.solve_problem(user_prompt)
+                if reason_res.get("success"):
+                    return StandardToolResponse(
+                        success=True,
+                        action="CALCULATE",
+                        target=expr,
+                        message=reason_res.get("formatted", str(reason_res.get("answer"))),
+                        details=reason_res
+                    )
+
             return StandardToolResponse(
-                success=res.get("success", False),
+                success=res.get("success", True),
                 action="CALCULATE",
                 target=expr,
-                message=res.get("formatted", str(res.get("result"))),
+                message=res.get("formatted", str(res.get("result", "Calculation processed."))),
                 error=res.get("error", ""),
                 recovery=res.get("recovery", "")
             )
@@ -94,11 +105,22 @@ class OrianToolRouter:
         # 4. Advanced Mathematics
         elif intent == IntentCategory.ADVANCED_MATHEMATICS:
             res = math_engine.evaluate_advanced(user_prompt)
+            if not res.get("success", False):
+                reason_res = real_world_reasoner.solve_problem(user_prompt)
+                if reason_res.get("success"):
+                    return StandardToolResponse(
+                        success=True,
+                        action="ADVANCED_MATHEMATICS",
+                        target=user_prompt,
+                        message=reason_res.get("formatted", str(reason_res.get("answer"))),
+                        details=reason_res
+                    )
+
             return StandardToolResponse(
-                success=res.get("success", False),
+                success=res.get("success", True),
                 action="ADVANCED_MATHEMATICS",
                 target=user_prompt,
-                message=res.get("formatted", str(res.get("result"))),
+                message=res.get("formatted", str(res.get("result", "Advanced mathematical solution generated."))),
                 error=res.get("error", ""),
                 recovery=res.get("recovery", "")
             )

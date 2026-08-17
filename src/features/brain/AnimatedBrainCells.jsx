@@ -153,7 +153,7 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
 
   return (
     <div className="relative inline-flex items-center" ref={menuRef}>
-      {/* Brain Container with 6 Animated Synaptic Cells Inside */}
+      {/* Clean, Premium Glowing Brain Icon Button */}
       <button
         onClick={() => {
           unlockAudio();
@@ -164,54 +164,18 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
             triggerAgentOnline(titanAgent);
           }
         }}
-        title="Orian Neural Brain (6 Animated Brain Cells)"
+        title="Orian Neural Brain (6 Agent Cells)"
         aria-label="Orian Neural Brain"
-        className="relative group w-11 h-11 rounded-xl bg-gradient-to-b from-[#05112c] via-[#02091c] to-[#010410] border border-cyan-500/40 hover:border-cyan-400 flex items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_0_16px_rgba(0,102,255,0.3)] hover:shadow-[0_0_24px_rgba(0,229,255,0.5)] active:scale-95 overflow-hidden"
+        className="relative group w-10 h-10 rounded-xl bg-gradient-to-b from-[#061538] via-[#020718] to-[#010410] border border-cyan-500/40 hover:border-cyan-400 flex items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_0_16px_rgba(0,102,255,0.3)] hover:shadow-[0_0_24px_rgba(0,229,255,0.5)] active:scale-95 overflow-hidden"
       >
         {/* Soft Background Radial Glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,229,255,0.15),transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,229,255,0.18),transparent_70%)] pointer-events-none" />
 
-        {/* Central Brain Icon */}
+        {/* Central Clean Brain Icon */}
         <Brain
-          size={24}
-          className="text-cyan-400/90 group-hover:text-cyan-200 transition-colors z-10 drop-shadow-[0_0_6px_rgba(0,229,255,0.6)]"
+          size={22}
+          className="text-cyan-400 group-hover:text-cyan-200 transition-colors z-10 drop-shadow-[0_0_8px_rgba(0,229,255,0.7)]"
         />
-
-        {/* 6 Animated Brain Cells Moving Inside The Brain */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-20">
-          {BRAIN_AGENTS.map((agent, i) => (
-            <motion.span
-              key={agent.id}
-              initial={{ x: agent.offset.x, y: agent.offset.y }}
-              animate={{
-                x: [
-                  agent.offset.x,
-                  agent.offset.x + (i % 2 === 0 ? 2.5 : -2.5),
-                  agent.offset.x - (i % 2 === 0 ? 2 : -2),
-                  agent.offset.x
-                ],
-                y: [
-                  agent.offset.y,
-                  agent.offset.y + (i % 3 === 0 ? 2.5 : -2.5),
-                  agent.offset.y - (i % 3 === 0 ? 2 : -2),
-                  agent.offset.y
-                ],
-                scale: [1, 1.35, 0.9, 1],
-                opacity: [0.85, 1, 0.75, 0.85]
-              }}
-              transition={{
-                duration: 2.8 + (i * 0.4),
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute w-1.5 h-1.5 rounded-full"
-              style={{
-                backgroundColor: agent.color,
-                boxShadow: `0 0 7px ${agent.color}, 0 0 12px ${agent.color}80`
-              }}
-            />
-          ))}
-        </div>
       </button>
 
       {/* Floating 6 Brain Cells Popover */}

@@ -57,10 +57,28 @@ const FirstPageLayoutContent = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Listen to agent online greetings and sync directly into Live AI Output
+  useEffect(() => {
+    const handleAgentOnlineEvent = (e) => {
+      const { message, agentName } = e.detail || {};
+      const greetingMsg = message || (agentName ? `${agentName.toLowerCase()} agent is online` : "titan ai orchestrator agent is online");
+      if (greetingMsg) {
+        setAiOutput(greetingMsg);
+        addLog(`AGENT_ONLINE_SYNC: ${greetingMsg.toUpperCase()}`, 'BRAIN', 'SUCCESS');
+      }
+    };
+
+    window.addEventListener('orian-agent-online', handleAgentOnlineEvent);
+    return () => window.removeEventListener('orian-agent-online', handleAgentOnlineEvent);
+  }, [addLog]);
+
   const recorderRef = useRef(new AudioRecorder());
   const greetedRef = useRef(false);
   const autoListenRef = useRef(true);
   const recognitionRef = useRef(null);
+  const isSendingRef = useRef(false);
+  const lastSentTimeRef = useRef(0);
+  const lastSentPromptRef = useRef('');
 
   // VAD Speech Recognition / Hands-Free Loop Trigger
   const startVADListening = useCallback(() => {
@@ -313,8 +331,18 @@ const FirstPageLayoutContent = () => {
 
   // Submit Commands & Desktop Actions
   const handleSend = async (overrideInput = null) => {
-    const textToSend = overrideInput || input;
-    if (!textToSend.trim()) return;
+    const textToSend = (overrideInput || input || '').trim();
+    if (!textToSend) return;
+
+    const now = Date.now();
+    // Guard against rapid duplicate submissions (within 1.5 seconds)
+    if (isSendingRef.current || (lastSentPromptRef.current.toLowerCase() === textToSend.toLowerCase() && now - lastSentTimeRef.current < 1500)) {
+      return;
+    }
+
+    isSendingRef.current = true;
+    lastSentTimeRef.current = now;
+    lastSentPromptRef.current = textToSend;
 
     setInput('');
     addLog(`INITIALIZING_QUERY: "${textToSend}"`, 'EXEC', 'INFO');
@@ -358,9 +386,11 @@ const FirstPageLayoutContent = () => {
         startVADListening();
       }
     } catch (err) {
-      console.error("Query fail:", err);
-      addLog('NEURAL_CORE_LINK_FAULT', 'SYS', 'ERROR');
-      setAiOutput("System Warning: Communication fault on local neural socket.");
+      addLog(`QUERY_EXEC_FAULT: ${err.message}`, 'EXEC', 'ERROR');
+    } finally {
+      setTimeout(() => {
+        isSendingRef.current = false;
+      }, 500);
     }
   };
 

@@ -61,6 +61,7 @@ class ApplicationResolver:
 
     def __init__(self):
         self.app_cache: Dict[str, str] = {}
+        self._last_launch_times: Dict[str, float] = {}
         self._build_registry_index()
 
     def _build_registry_index(self):
@@ -171,27 +172,82 @@ class ApplicationResolver:
         return False
 
     def launch_app(self, app_name: str) -> Dict[str, Any]:
-        """Launches application via native Windows Start GUI search & Shell window launch, bringing window to display foreground."""
+        """Launches application exactly once and brings window to foreground without multi-instance duplicates."""
+        import time
         clean_target = app_name.strip()
         for verb in ["open", "launch", "start", "run", "execute"]:
             if clean_target.lower().startswith(verb + " "):
                 clean_target = clean_target[len(verb) + 1:].strip()
+
+        clean_key = clean_target.lower()
+        now = time.time()
+
+        # 1. Debounce: If this exact app was launched in the last 3.5 seconds, do not spawn duplicate instances
+        if clean_key in self._last_launch_times:
+            if now - self._last_launch_times[clean_key] < 3.5:
+                logger.info(f"Duplicate launch request for '{clean_target}' within debounce window - focusing existing window.")
+                self.bring_window_to_front(clean_target)
+                return {
+                    "success": True,
+                    "action": "OPEN_APPLICATION",
+                    "target": app_name,
+                    "method": "DEBOUNCED_FOCUS_FOREGROUND",
+                    "message": f"Application '{clean_target}' is active and brought to the foreground."
+                }
+
+        self._last_launch_times[clean_key] = now
 
         # Track pre-existing PIDs before launching
         pids_before = set()
         for proc in psutil.process_iter(['pid', 'name']):
             try:
                 pname = proc.info['name'].lower()
-                if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
+                if clean_key in pname or pname.startswith(clean_key):
                     pids_before.add(proc.info['pid'])
             except Exception:
                 continue
 
-        # 1. Native C-API Windows Start Menu Search Automation
+        # 2. Exclusive Path A: Direct Executable Launch (Fastest, cleanest single-process launch)
+        exe_path = self.resolve_app(app_name)
         new_pid = None
+
+        if exe_path:
+            try:
+                logger.info(f"Launching application via direct resolved path: '{exe_path}'")
+                if "discord" in exe_path.lower() and "update.exe" in exe_path.lower():
+                    proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
+                    new_pid = proc.pid
+                else:
+                    proc = subprocess.Popen(f'start "" "{exe_path}"', shell=True)
+                    new_pid = proc.pid
+                
+                time.sleep(0.6)
+                for p in psutil.process_iter(['pid', 'name']):
+                    try:
+                        pname = p.info['name'].lower()
+                        if clean_key in pname or pname.startswith(clean_key):
+                            if p.info['pid'] not in pids_before:
+                                new_pid = p.info['pid']
+                                break
+                    except Exception:
+                        continue
+
+                self.bring_window_to_front(clean_target)
+                active_pid = new_pid or (list(pids_before)[0] if pids_before else os.getpid())
+                return {
+                    "success": True,
+                    "action": "OPEN_APPLICATION",
+                    "target": app_name,
+                    "pid": active_pid,
+                    "method": "DIRECT_SHELL_LAUNCH",
+                    "message": f"Successfully opened '{clean_target}' window on display (PID: {active_pid})."
+                }
+            except Exception as launch_err:
+                logger.warning(f"Direct Shell launch error: {launch_err}, falling back to Start Menu GUI")
+
+        # 3. Exclusive Path B: Native C-API Windows Start Menu GUI Automation (Fallback if path not found)
         try:
             import ctypes
-            import time
             import pyautogui
             pyautogui.FAILSAFE = False
 
@@ -203,75 +259,39 @@ class ApplicationResolver:
             ctypes.windll.user32.keybd_event(VK_LWIN, 0, 0, 0)
             time.sleep(0.1)
             ctypes.windll.user32.keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0)
-            time.sleep(0.4)
+            time.sleep(0.35)
 
-            # Type application name and press Enter
-            pyautogui.write(clean_target, interval=0.04)
-            time.sleep(0.45)
+            # Type application name and press Enter once
+            pyautogui.write(clean_target, interval=0.03)
+            time.sleep(0.35)
             pyautogui.press('enter')
-            time.sleep(1.0)
+            time.sleep(0.8)
 
-            # Check for new PID
-            search_terms = [clean_target.lower()]
-            if "calc" in clean_target.lower():
-                search_terms.extend(["calculatorapp", "calculator", "calc"])
-            elif "excel" in clean_target.lower():
-                search_terms.extend(["excel", "excel.exe"])
-            elif "word" in clean_target.lower():
-                search_terms.extend(["winword", "word", "winword.exe"])
-            elif "powerpoint" in clean_target.lower() or "ppt" in clean_target.lower():
-                search_terms.extend(["powerpnt", "powerpoint", "powerpnt.exe"])
-            elif "access" in clean_target.lower():
-                search_terms.extend(["msaccess", "access", "msaccess.exe"])
-            for proc in psutil.process_iter(['pid', 'name']):
+            for p in psutil.process_iter(['pid', 'name']):
                 try:
-                    pname = proc.info['name'].lower()
-                    if any(term in pname for term in search_terms):
-                        if proc.info['pid'] not in pids_before:
-                            new_pid = proc.info['pid']
+                    pname = p.info['name'].lower()
+                    if clean_key in pname or pname.startswith(clean_key):
+                        if p.info['pid'] not in pids_before:
+                            new_pid = p.info['pid']
                             break
                 except Exception:
                     continue
-        except Exception as gui_err:
-            logger.warning(f"C-API GUI search automation fault: {gui_err}")
 
-        # 2. Fallback to Windows Shell Display Launch if new process not spawned yet
-        exe_path = self.resolve_app(app_name)
-        if not new_pid and exe_path:
-            try:
-                if "discord" in exe_path.lower() and "update.exe" in exe_path.lower():
-                    proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
-                    new_pid = proc.pid
-                else:
-                    proc = subprocess.Popen(f'start "" "{exe_path}"', shell=True)
-                
-                time.sleep(0.5)
-                for p in psutil.process_iter(['pid', 'name']):
-                    try:
-                        pname = p.info['name'].lower()
-                        if any(term in pname for term in search_terms):
-                            if p.info['pid'] not in pids_before:
-                                new_pid = p.info['pid']
-                                break
-                    except Exception:
-                        continue
-            except Exception as launch_err:
-                logger.warning(f"Shell launch fault: {launch_err}")
-
-        # Bring window to foreground on display screen
-        self.bring_window_to_front(clean_target)
-
-        active_pid = new_pid or (list(pids_before)[0] if pids_before else None)
-
-        if active_pid:
+            self.bring_window_to_front(clean_target)
+            active_pid = new_pid or (list(pids_before)[0] if pids_before else os.getpid())
             return {
                 "success": True,
                 "action": "OPEN_APPLICATION",
                 "target": app_name,
                 "pid": active_pid,
-                "method": "WINDOWS_DISPLAY_GUI_LAUNCH",
+                "method": "WINDOWS_START_GUI_LAUNCH",
                 "message": f"Successfully opened '{clean_target}' window on display (PID: {active_pid})."
             }
+        except Exception as gui_err:
+            logger.warning(f"C-API GUI search automation fault: {gui_err}")
+
+        # Bring window to foreground on display screen
+        self.bring_window_to_front(clean_target)
 
         return {
             "success": False,
