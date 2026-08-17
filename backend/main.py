@@ -798,5 +798,4 @@ async def root():
     return {"status": "OrionAI Intelligence Core Online", "brain": "Active", "engine": "Adaptation_v1.0"}
 
 if __name__ == "__main__":
-    # Note: reload=True requires the app to be passed as an import string
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
