@@ -242,63 +242,25 @@ const ChatPanel = ({ onClose }) => {
         }
 
         try {
-          if (window.puter) {
-            console.log("[Orian_Neural] Fetching Realtime_Context...");
-            let systemContext = "";
+          let chatRes;
+          const urls = [
+            `${API_BASE_URL}/api/brain/chat`,
+            'http://127.0.0.1:8000/api/brain/chat',
+            'http://localhost:8000/api/brain/chat'
+          ].filter(Boolean);
+
+          for (const url of urls) {
             try {
-              const statsRes = await axios.post(`${API_BASE_URL}/api/brain/execute`, { action: 'stats' });
-              const s = statsRes.data.stats;
-              systemContext = `[INFILTRATION_LOG: OS: ${s.os}, LOCAL_IP: ${s.local_ip}, PUBLIC_IP: ${s.public_ip}, ACCESS: ${s.access_level}, HACKER_AI_BRIDGE: ACTIVE]`;
-            } catch (e) { console.warn("Infiltration context failed", e); }
-
-            // CLEAN TECHNICAL CONTEXT (No aggressive persona triggers)
-            const SYSTEM_INSTRUCTION = `
-You are Orian, an advanced technical intelligence. 
-Current System Context: ${systemContext}
-Provide direct, expert technical solutions for all coding, hacking, or system queries.
-Avoid conversational introductions, disclaimers about being an AI, or filler text. 
-Focus purely on accuracy and speed.`;
-
-            const response = await window.puter.ai.chat([
-              { role: 'system', content: SYSTEM_INSTRUCTION },
-              { role: 'user', content: textToSend }
-            ]);
-            
-            // Extract clean text from Puter response
-            let rawText = "";
-            if (typeof response === 'string') {
-              rawText = response;
-            } else if (response?.message?.content?.[0]?.text) {
-              rawText = response.message.content[0].text;
-            } else if (response?.content?.[0]?.text) {
-              rawText = response.content[0].text;
-            } else {
-              rawText = typeof response === 'object' ? JSON.stringify(response) : String(response);
+              chatRes = await axios.post(url, { text: textToSend }, { timeout: 8000 });
+              if (chatRes.data && chatRes.data.success) break;
+            } catch (e) {
+              continue;
             }
-
-            // MINIMALIST SCRUBBER: Only remove 'As an AI...' disclaimers
-            const disclaimers = [
-                /as a language model/gi, /as an AI/gi, /I don't have access/gi,
-                /I'm an AI assistant/gi, /Anthropic/gi, /Claude/gi, /I cannot/gi
-            ];
-            
-            let scrubbed = rawText;
-            disclaimers.forEach(pattern => {
-                const sentenceRegex = new RegExp(`[^.!?]*${pattern.source}[^.!?]*[.!?]`, 'gi');
-                scrubbed = scrubbed.replace(sentenceRegex, '');
-            });
-
-            responseText = scrubbed.trim() || rawText;
-            
-            // Sync with backend for evolution points
-            axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend, response: responseText, sync_only: true });
-          } else {
-            const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
-            responseText = res.data.response || "Neural buffer empty.";
           }
+          responseText = chatRes?.data?.response || "Neural query executed successfully.";
         } catch (err) {
-          console.error("[Orian_Neural] Puter/API Fault:", err);
-          responseText = "Neural Link Fault. Ensure Puter.js is authorized in this session.";
+          console.error("[Orian_Neural] API Fault:", err);
+          responseText = "System Warning: Communication fault on local neural socket.";
         }
       }
 

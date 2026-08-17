@@ -637,16 +637,9 @@ class MemoryItem(BaseModel):
 
 @app.post("/api/brain/chat")
 async def chat_with_brain(request: dict):
-    """Processes text-based neural commands with LLM/Puter reasoning."""
+    """Processes text-based neural commands with Orian Tool Router & LLM reasoning."""
     try:
         text = request.get("text", "")
-        sync_only = request.get("sync_only", False)
-        provided_response = request.get("response", None)
-        
-        if sync_only and provided_response:
-            neural_sys.add_neural_exp(2)
-            brain.store_interaction(text, provided_response, "PUTER_JS_SYNC")
-            return {"success": True, "response": provided_response}
 
         # 1. Route through Universal Orian Tool Router for deterministic execution (Apps, Math, Cleanup, Diagnostics, Self-Programming)
         from tools.tool_router import tool_router
