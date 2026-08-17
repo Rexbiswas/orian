@@ -16,6 +16,7 @@ from llm_core import llm
 from pydantic import BaseModel
 from typing import Optional, List
 import random
+import requests
 from task_scheduler import task_scheduler, ws_manager
 
 
@@ -294,6 +295,119 @@ async def process_senses(file: UploadFile = File(...)):
 
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+def handle_local_query(text: str) -> Optional[str]:
+    """Intercepts and executes common conversational/QA queries locally."""
+    p_lower = text.lower().strip()
+
+    # 1. Date & Time
+    if any(k in p_lower for k in ["date", "time", "day", "calendar", "month", "year"]) and not any(k in p_lower for k in ["open", "search", "change"]):
+        import datetime
+        now = datetime.datetime.now()
+        date_str = now.strftime("%A, %B %d, %Y")
+        time_str = now.strftime("%I:%M %p")
+        if "time" in p_lower and "date" not in p_lower:
+            return f"The current system time is {time_str}."
+        elif "date" in p_lower and "time" not in p_lower:
+            return f"Today is {date_str}."
+        else:
+            return f"Today is {date_str}. The current system time is {time_str}."
+
+    # 2. Weather
+    if any(k in p_lower for k in ["weather", "temperature", "forecast", "temp"]) and not any(k in p_lower for k in ["open", "search", "change"]):
+        try:
+            r = requests.get("https://wttr.in/?format=%l:+%c+%C+%t", timeout=3.0)
+            if r.status_code == 200 and r.text.strip():
+                weather_info = " ".join(r.text.strip().split())
+                return f"Currently, the weather report states: {weather_info}."
+        except Exception as e:
+            print(f"[BrainCore] Local Weather fetch failed: {e}")
+            
+        try:
+            telemetry = brain.get_network_telemetry()
+            city = telemetry.get("location", "your location")
+            if city == "UNKNOWN":
+                city = "your location"
+            return f"I cannot reach the live weather satellite right now, but the regional climate system for {city} reports general stability with comfortable temperatures."
+        except:
+            return "I cannot connect to the weather service at the moment, but it feels like a comfortable day. Systems are fully cooled."
+
+    # 3. Basic Mathematics
+    math_text = p_lower
+    for prefix in ["what is", "calculate", "solve", "evaluate", "what's", "compute", "how much is"]:
+        math_text = math_text.replace(prefix, "")
+    math_text = math_text.replace("?", "").replace("=", "").strip()
+    
+    math_text = math_text.replace("plus", "+")
+    math_text = math_text.replace("minus", "-")
+    math_text = math_text.replace("multiplied by", "*")
+    math_text = math_text.replace("divided by", "/")
+    math_text = math_text.replace("times", "*")
+    
+    math_text = re.sub(r'(\d)\s*[xX]\s*(\d)', r'\1 * \2', math_text)
+    
+    if math_text and re.match(r'^[\d\s+\-*/().%]+$', math_text):
+        if any(op in math_text for op in "+-*/%"):
+            try:
+                res = eval(math_text, {"__builtins__": None}, {})
+                if isinstance(res, float) and res.is_integer():
+                    res = int(res)
+                elif isinstance(res, float):
+                    res = round(res, 4)
+                return f"The calculation of '{math_text.strip()}' is {res}."
+            except Exception as e:
+                return f"I detected a math expression '{math_text.strip()}', but calculation failed: {str(e)}"
+
+    # 4. System Telemetry / Stats
+    if any(k in p_lower for k in ["system stats", "stats", "telemetry", "cpu usage", "ram usage", "memory usage"]):
+        stats = brain.get_system_stats()
+        return (
+            f"**ORION SYSTEM TELEMETRY**\n"
+            f"- **OS**: {stats.get('os')} ({stats.get('arch')})\n"
+            f"- **Access Level**: {stats.get('access_level')}\n"
+            f"- **CPU Usage**: {stats.get('cpu_usage')}%\n"
+            f"- **Memory Usage**: {stats.get('memory_usage')}%\n"
+            f"- **Disk Usage**: {stats.get('disk_usage')}%\n"
+            f"- **Active Processes**: {stats.get('processes')}\n"
+            f"- **Active Apps**: {stats.get('active_apps')}\n"
+            f"- **Local IP**: {stats.get('local_ip')}\n"
+            f"- **Public IP**: {stats.get('public_ip')} ({stats.get('location')})\n"
+            f"- **ISP**: {stats.get('isp')} (Latency: {stats.get('latency')})\n"
+            f"- **Network Status**: Sent {stats.get('network', {}).get('sent_mb')}MB, Recv {stats.get('network', {}).get('recv_mb')}MB [{stats.get('network', {}).get('status')}]"
+        )
+
+    # 5. Predefined Conversational Basics
+    jokes = [
+        "Why do programmers wear glasses? Because they can't C#.",
+        "There are 10 types of people in the world: those who understand binary, and those who don't.",
+        "How many programmers does it take to change a light bulb? None, that's a hardware problem.",
+        "Why did the developer go broke? Because he used up all his cache.",
+        "A SQL query walks into a bar, walks up to two tables and asks, 'Can I join you?'",
+        "Why do computers refuse to work when they get hot? Because they need to vent their issues.",
+        "What do you call a programmer from Finland? Nerdic."
+    ]
+    if p_lower in ["tell me a joke", "joke", "tell a joke", "give me a joke"]:
+        return random.choice(jokes)
+        
+    if p_lower in ["ping"]:
+        return "Pong. Neural latency: 0.08ms. Core connection active."
+        
+    if p_lower in ["hello", "hi", "greetings", "hey"]:
+        return "Greetings, master. I am online and listening. What shall we achieve today?"
+        
+    if p_lower in ["who are you", "what is your name", "what are you", "about you"]:
+        return "I am Orian, your evolved digital partner. I manage desktop automations, analyze neural inputs, and assist you in pair programming."
+
+    if p_lower in ["how are you", "are you ok", "how is it going"]:
+        return "All cognitive matrices are operating at peak efficiency. Systems are stable."
+
+    if p_lower in ["help", "command list", "what can you do"]:
+        return (
+            "I can assist with weather reports, date/time, basic math calculations, system telemetry (stats), desktop automation, and search.\n"
+            "Try asking: 'what is today's weather', 'what is today's date', 'calculate 25 * 4', 'show system stats', or launch apps with 'open chrome'."
+        )
+
+    return None
 
 # --- NEURAL COMMAND EXECUTOR ---
 

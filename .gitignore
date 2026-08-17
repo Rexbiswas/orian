@@ -34,4 +34,15 @@ out
 
 .vercel
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# Gradle build/cache
+.gradle/
+android/gradle/wrapper/dists/
+
 npx cap open android

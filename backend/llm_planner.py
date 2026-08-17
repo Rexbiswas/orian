@@ -223,12 +223,17 @@ Return ONLY a valid JSON object with the following schema, with no conversationa
                 agent_type="coding"
             ))
 
-        else:
+        elif any(w in p_lower for w in ["open", "launch", "start", "run", "execute", "play"]):
+            app_name = prompt
+            for verb in ["open", "launch", "start", "run", "execute", "play"]:
+                app_name = re.sub(r'(?i)\b' + re.escape(verb) + r'\b', '', app_name)
+            app_name = app_name.strip()
+
             steps.append(PlannedStep(
                 step_id="step_1",
                 command=prompt,
                 tool_name="launch_app",
-                tool_params={"app_name": prompt.replace("open", "").replace("launch", "").strip()},
+                tool_params={"app_name": app_name},
                 agent_type="desktop"
             ))
 
