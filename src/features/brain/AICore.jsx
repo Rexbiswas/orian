@@ -1,7 +1,6 @@
 import React from 'react';
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
-import AIModeCards from '../modes/AIModeCards';
 
 const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
   return (
@@ -34,13 +33,10 @@ const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
         <CircularCore 
           emotion={emotion} 
           isSpeaking={isSpeaking} 
-          isListening={isListening}
+          isListening={isListening} 
           audioLevel={audioLevel} 
         />
       </div>
-
-      {/* 4 Mode settings badges */}
-      <AIModeCards />
     </GlassCard>
   );
 };

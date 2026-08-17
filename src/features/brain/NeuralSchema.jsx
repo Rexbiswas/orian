@@ -2,7 +2,6 @@ import React from 'react';
 import { useVoice } from '../../context/VoiceContext';
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
-import AIModeCards from '../modes/AIModeCards';
 
 const NeuralSchema = ({ emotion = 'neutral' }) => {
   const { isSpeaking, audioLevel } = useVoice();
@@ -39,9 +38,6 @@ const NeuralSchema = ({ emotion = 'neutral' }) => {
           audioLevel={audioLevel} 
         />
       </div>
-
-      {/* 4 Mode settings badges */}
-      <AIModeCards />
     </GlassCard>
   );
 };
