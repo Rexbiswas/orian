@@ -54,9 +54,10 @@ app.post('/api/voice/speak', async (req, res) => {
   const { text, voiceId, settings } = req.body;
   
   try {
+    const targetVoice = (voiceId && voiceId !== 'D38z5RcWu1voky8WS1ja') ? voiceId : '21m00Tcm4TlvDq8ikWAM';
     const response = await axios({
       method: 'post',
-      url: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || 'D38z5RcWu1voky8WS1ja'}`,
+      url: `https://api.elevenlabs.io/v1/text-to-speech/${targetVoice}`,
       data: {
         text,
         model_id: 'eleven_flash_v2',

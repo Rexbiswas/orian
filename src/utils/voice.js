@@ -1,6 +1,6 @@
 import { PROXY_BASE_URL } from '../config';
 
-const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'D38z5RcWu1voky8WS1ja';
+const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 
 // Helper to select the best available English voice in the browser
 const getEnglishVoice = () => {
