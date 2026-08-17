@@ -67,15 +67,15 @@ class LaunchAppTool(BaseTool):
     }
 
     def execute(self, params: Dict[str, Any]) -> ToolResult:
+        from execution.app_resolver import app_resolver
         app_name = params.get("app_name", "").strip()
         if not app_name:
             return ToolResult(False, "", "app_name parameter missing")
         
-        success = brain.launch_app(app_name)
-        if success:
-            time.sleep(0.5)
-            return ToolResult(True, f"Application '{app_name}' launched successfully.")
-        return ToolResult(False, "", f"Could not launch executable or shortcut for '{app_name}'.")
+        res = app_resolver.launch_app(app_name)
+        if res.get("success"):
+            return ToolResult(True, res.get("message", f"Application '{app_name}' launched successfully."))
+        return ToolResult(False, "", res.get("message", f"Could not launch executable or shortcut for '{app_name}'."))
 
 
 class WriteFileTool(BaseTool):

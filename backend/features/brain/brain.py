@@ -111,42 +111,9 @@ class CognitiveBrain:
         return None
 
     def launch_app(self, app_name):
-        app_name_clean = app_name.lower().strip()
-        
-        # 1. Direct Shell Mapping (Fastest)
-        apps = {
-            "excel": "excel", "word": "winword", "powerpoint": "powerpnt",
-            "chrome": "chrome", "edge": "msedge", "vscode": "code", "code": "code"
-        }
-        target = apps.get(app_name_clean.replace(" ", ""))
-        
-        import subprocess
-        if target:
-            try:
-                subprocess.Popen(f"start {target}", shell=True)
-                return True
-            except: pass
-
-        # 2. Neural Shortcut Scan (Search Desktop/Start Menu)
-        try:
-            found_path = self.scan_shortcuts(app_name_clean)
-            if found_path:
-                os.startfile(found_path)
-                return True
-        except: pass
-
-        # 3. Last Resort: Intelligent System Search (Win + Type)
-        try:
-            pyautogui.press('win')
-            import time
-            time.sleep(0.3)
-            pyautogui.write(app_name_clean, interval=0.02)
-            time.sleep(0.6)
-            pyautogui.press('enter')
-            return True
-        except Exception as e:
-            self.report_mistake(f"launch_{app_name_clean}", str(e), "Check app name")
-            return False
+        from execution.app_resolver import app_resolver
+        res = app_resolver.launch_app(app_name)
+        return res.get("success", False)
 
     # --- FOLDER & FILE AUTOMATION ---
     def open_folder(self, folder_name):
