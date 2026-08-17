@@ -79,37 +79,37 @@ class BaseAgent:
 
 class DesktopAgent(BaseAgent):
     def __init__(self):
-        super().__init__("Desktop Agent", "desktop")
+        super().__init__("TITAN AI", "desktop")
 
 
 class BrowserAgent(BaseAgent):
     def __init__(self):
-        super().__init__("Browser Agent", "browser")
+        super().__init__("TITAN AI", "browser")
 
 
 class FileSystemAgent(BaseAgent):
     def __init__(self):
-        super().__init__("File System Agent", "file")
+        super().__init__("TITAN AI", "file")
 
 
 class CodingAgent(BaseAgent):
     def __init__(self):
-        super().__init__("Coding & Dev Agent", "coding")
+        super().__init__("GUARDIAN AI", "coding")
 
 
 class SearchAgent(BaseAgent):
     def __init__(self):
-        super().__init__("AI Research Agent", "search")
+        super().__init__("CORTEX AI", "search")
 
 
 class TerminalAgent(BaseAgent):
     def __init__(self):
-        super().__init__("Terminal Agent", "terminal")
+        super().__init__("TITAN AI", "terminal")
 
 
 class MemoryAgent(BaseAgent):
     def __init__(self):
-        super().__init__("Context Memory Agent", "memory")
+        super().__init__("CORTEX AI", "memory")
 
     async def execute_tool_call(self, task: Task, progress_cb: Callable[[Task], None], task_results_map: Dict[str, Any]) -> ToolResult:
         summary = memory_engine.get_context_summary()

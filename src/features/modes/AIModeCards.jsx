@@ -98,8 +98,9 @@ const AIModeCards = () => {
 
   const getDynamicStatus = (agent) => {
     // 1. WebSocket remote status broadcast override
-    if (agentStatuses && agentStatuses[agent.name] && agentStatuses[agent.name] !== 'IDLE') {
-      return agentStatuses[agent.name];
+    const remoteStatus = agentStatuses?.[agent.name] || agentStatuses?.[agent.id];
+    if (remoteStatus && remoteStatus !== 'IDLE') {
+      return remoteStatus;
     }
     // 2. Real-time active state overrides
     if (agent.id === 'cortex') {
