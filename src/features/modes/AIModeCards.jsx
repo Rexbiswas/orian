@@ -74,7 +74,7 @@ const AIModeCards = () => {
   };
 
   return (
-    <div className="w-full grid grid-cols-4 gap-2.5 border-t border-purple-500/10 pt-4">
+    <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 border-t border-purple-500/10 pt-3 sm:pt-4">
       {AGENT_FEATURES.map((agent) => {
         const status = getDynamicStatus(agent);
         const isBusy = (agent.id === 'titan' && stats?.running > 0) || (agent.id === 'spectra' && (isSpeaking || isListening));
@@ -83,16 +83,16 @@ const AIModeCards = () => {
         return (
           <div 
             key={agent.id} 
-            className={`border rounded-[6px] px-2 py-2.5 flex flex-col items-center justify-center bg-[#050A18]/60 backdrop-blur-md transition-all duration-300 select-none relative group ${agent.borderColor}`}
+            className={`border rounded-[8px] sm:rounded-[6px] px-2.5 py-2.5 sm:py-2 flex flex-col items-center justify-center bg-[#050A18]/70 backdrop-blur-md transition-all duration-300 select-none relative group min-h-[44px] ${agent.borderColor}`}
           >
             <div className="flex items-center gap-1 mb-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${agent.indicatorColor} ${isBusy ? 'animate-ping' : 'animate-pulse'}`} />
-              <Icon size={11} className={`${agent.color} shrink-0`} />
-              <span className="text-[6.5px] font-bold uppercase tracking-wider text-slate-300 leading-none group-hover:text-white transition-colors">
+              <Icon size={12} className={`${agent.color} shrink-0`} />
+              <span className="text-[8px] sm:text-[6.5px] font-bold uppercase tracking-wider text-slate-300 leading-none group-hover:text-white transition-colors">
                 {agent.name}
               </span>
             </div>
-            <span className={`text-[9px] font-black tracking-widest leading-none font-sans ${agent.color} ${isBusy ? 'animate-pulse' : ''}`}>
+            <span className={`text-[10px] sm:text-[9px] font-black tracking-widest leading-none font-sans ${agent.color} ${isBusy ? 'animate-pulse' : ''}`}>
               {status}
             </span>
           </div>

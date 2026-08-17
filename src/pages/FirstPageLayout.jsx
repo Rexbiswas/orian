@@ -428,14 +428,15 @@ const FirstPageLayoutContent = () => {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder={isListening ? "Listening..." : "Type your command..."}
-                        className="w-full bg-[#050B20]/80 border border-cyan-400/30 rounded-xl px-4 py-3 pr-10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono"
+                        className="w-full bg-[#050B20]/90 border border-cyan-400/40 rounded-xl px-4 py-3.5 pr-12 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all font-mono min-h-[48px] shadow-[0_0_15px_rgba(0,229,255,0.1)]"
                       />
                       <button 
                         onClick={() => startVADListening()}
                         title="Speech to Text"
-                        className="absolute right-3.5 text-cyan-400 hover:text-cyan-200 transition-colors p-1.5 cursor-pointer"
+                        aria-label="Speech to Text"
+                        className="absolute right-2 text-cyan-400 hover:text-cyan-200 transition-colors p-2.5 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                       >
-                        <AudioLines size={15} className={isListening ? "animate-pulse text-cyan-200" : ""} />
+                        <AudioLines size={18} className={isListening ? "animate-pulse text-cyan-200" : ""} />
                       </button>
                     </div>
                   </div>

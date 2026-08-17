@@ -127,7 +127,7 @@ const LiveTaskDashboard = ({
       className="flex flex-col h-full min-h-[300px]"
     >
       {/* Stats Counter Bar */}
-      <div className="grid grid-cols-5 gap-1.5 mb-2.5">
+      <div className="grid grid-cols-5 gap-1 sm:gap-1.5 mb-2.5">
         {[
           { key: 'ALL', label: 'All Tasks', count: stats.total, color: 'text-slate-200' },
           { key: 'RUNNING', label: 'Running', count: stats.running, color: 'text-cyan-400' },
@@ -138,7 +138,7 @@ const LiveTaskDashboard = ({
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`p-1.5 rounded-lg border text-center transition-all ${
+            className={`p-1.5 rounded-lg border text-center transition-all min-h-[38px] flex flex-col justify-center items-center ${
               activeTab === tab.key
                 ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
                 : 'bg-slate-900/40 border-white/5 text-slate-400 hover:border-white/15'
@@ -147,7 +147,7 @@ const LiveTaskDashboard = ({
             <div className={`text-[12px] font-mono font-bold leading-none ${tab.color}`}>
               {tab.count}
             </div>
-            <div className="text-[7.5px] font-semibold uppercase tracking-wider mt-0.5 truncate">
+            <div className="text-[7px] sm:text-[7.5px] font-semibold uppercase tracking-wider mt-0.5 truncate max-w-full">
               {tab.label}
             </div>
           </button>

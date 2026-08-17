@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
   --color-brand-bg:     #010208;
@@ -27,8 +27,11 @@ body {
   margin: 0;
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: #010208;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ─── GLASS ────────────────────────────────────────── */

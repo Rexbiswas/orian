@@ -293,7 +293,7 @@ const ChatPanel = ({ onClose }) => {
     <Motion.div
       drag
       dragMomentum={false}
-      className="w-72 h-80 glass-morphism rounded-2xl flex flex-col overflow-hidden border border-brand-cyan/20 shadow-[0_0_20px_rgba(0,242,255,0.1)] cursor-default active:cursor-grabbing"
+      className="w-72 sm:w-80 h-80 sm:h-96 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-6rem)] glass-morphism rounded-2xl flex flex-col overflow-hidden border border-brand-cyan/20 shadow-[0_0_20px_rgba(0,242,255,0.1)] cursor-default active:cursor-grabbing"
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/5 bg-white/5 flex items-center justify-between">
@@ -305,9 +305,10 @@ const ChatPanel = ({ onClose }) => {
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white/10 rounded-md text-slate-500 hover:text-brand-cyan transition-all"
+            aria-label="Close Chat Drawer"
+            className="p-2 hover:bg-white/10 rounded-md text-slate-400 hover:text-brand-cyan transition-all min-h-[36px] min-w-[36px] flex items-center justify-center"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -325,14 +326,14 @@ const ChatPanel = ({ onClose }) => {
               animate={{ opacity: 1, x: 0 }}
               className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <div className={`max-w-[90%] px-3 py-2 rounded-xl text-[11px] font-medium leading-relaxed ${msg.role === 'user'
+              <div className={`max-w-[90%] px-3.5 py-2.5 rounded-xl text-xs sm:text-[11px] font-medium leading-relaxed ${msg.role === 'user'
                   ? 'bg-brand-cyan/20 border border-brand-cyan/30 text-white'
                   : 'bg-white/5 border border-white/10 text-slate-300'
                 }`}>
                 {msg.text}
                 {msg.type === 'download' && <DownloadProgress label={msg.skillLabel} />}
               </div>
-              <span className="text-[7px] font-bold text-slate-600 uppercase tracking-widest mt-1">
+              <span className="text-[7.5px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                 {msg.role === 'ai' ? 'Orian_OS' : 'Admin'}
               </span>
             </Motion.div>
@@ -355,22 +356,23 @@ const ChatPanel = ({ onClose }) => {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-white/5 bg-white/2">
-        <div className="relative w-full">
+      <div className="p-3 sm:p-4 border-t border-white/5 bg-white/2">
+        <div className="relative w-full flex items-center">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder={isListening ? "Listening..." : "Initialize neural query..."}
-            className={`w-full bg-black/40 border ${isListening ? 'border-brand-cyan/60' : 'border-white/10'} rounded-xl px-4 py-2.5 pr-9 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-cyan/40 transition-all`}
+            className={`w-full bg-black/40 border ${isListening ? 'border-brand-cyan/60' : 'border-white/10'} rounded-xl px-4 py-3 sm:py-2.5 pr-10 text-xs sm:text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:border-brand-cyan/40 transition-all font-mono min-h-[44px]`}
           />
           <button
             onClick={() => toggleListening()}
             title="Speech to Text"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-brand-cyan transition-colors"
+            aria-label="Toggle Speech to Text"
+            className="absolute right-2.5 text-slate-400 hover:text-brand-cyan transition-colors p-2"
           >
-            <AudioLines size={14} className={isListening ? "animate-pulse text-brand-cyan" : ""} />
+            <AudioLines size={16} className={isListening ? "animate-pulse text-brand-cyan" : ""} />
           </button>
         </div>
       </div>
