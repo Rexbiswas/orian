@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Cpu, Activity, Star, Globe, Bot, MapPin, Brain } from 'lucide-react';
+import { Clock, Cpu, Activity, Star, Globe, Bot, MapPin, Brain, Sparkles } from 'lucide-react';
 import StatCard from '../system/StatCard';
+import AnimatedBrainCells from '../brain/AnimatedBrainCells';
 
 const Header = ({ evolution = "68.4%", onlineAgents = 6 }) => {
   const [uptime, setUptime] = useState('00:00:00');
   const [telemetry, setTelemetry] = useState({ cpu: 28, ram: 54, gpu: 38, internet: 'Connected' });
   const [location, setLocation] = useState('NEW DELHI, IN');
+  const [agentGreeting, setAgentGreeting] = useState('');
   const bootTime = useRef(Date.now());
 
   // Setup uptime counter and load fluctuations
@@ -26,6 +28,19 @@ const Header = ({ evolution = "68.4%", onlineAgents = 6 }) => {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Agent online event listener
+  useEffect(() => {
+    const handleAgentOnline = (e) => {
+      const { agentName, message } = e.detail || {};
+      const greetingMsg = message || (agentName ? `${agentName.toLowerCase()} agent is online` : "titan ai agent is online");
+      setAgentGreeting(greetingMsg);
+      setTimeout(() => setAgentGreeting(''), 4500);
+    };
+
+    window.addEventListener('orian-agent-online', handleAgentOnline);
+    return () => window.removeEventListener('orian-agent-online', handleAgentOnline);
   }, []);
 
   // Fetch location for Header telemetry
@@ -70,14 +85,9 @@ const Header = ({ evolution = "68.4%", onlineAgents = 6 }) => {
       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/4 via-transparent to-green-400/3 pointer-events-none" />
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent pointer-events-none" />
       
-      {/* Orian AI Logo */}
+      {/* Orian AI Logo with Animated Brain Cells (6 Agents) */}
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-[0_0_15px_rgba(0,102,255,0.3)]">
-            <Bot size={14} className="animate-pulse" />
-          </div>
-          <div className="absolute -inset-1 rounded-xl border border-blue-500/10 animate-pulse" />
-        </div>
+        <AnimatedBrainCells onAgentOnline={(agent, msg) => setAgentGreeting(msg)} />
         <div className="flex flex-col">
           <span className="text-sm font-black tracking-widest text-white leading-none">
             Orian <span className="text-blue-400">AI</span>
@@ -87,6 +97,14 @@ const Header = ({ evolution = "68.4%", onlineAgents = 6 }) => {
           </span>
         </div>
       </div>
+
+      {/* Real-Time Agent Online Glowing Status Announcement */}
+      {agentGreeting && (
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-[10.5px] font-mono font-bold animate-pulse shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+          <Sparkles size={12} className="text-cyan-400" />
+          <span className="capitalize">{agentGreeting}</span>
+        </div>
+      )}
 
       {/* Telemetry metrics row */}
       <div className="hidden md:flex items-center bg-black/40 border border-blue-500/[0.12] rounded-xl py-1 px-2 backdrop-blur-sm gap-1">

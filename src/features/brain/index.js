@@ -4,3 +4,5 @@ export { default as CircularCore } from './CircularCore';
 export { default as NeuralLog } from './NeuralLog';
 export { default as NeuralPulse } from './NeuralPulse';
 export { default as NeuralSchema } from './NeuralSchema';
+export { default as AnimatedBrainCells, BRAIN_AGENTS } from './AnimatedBrainCells';
+
