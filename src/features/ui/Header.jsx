@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Cpu, Activity, Star, Globe, Bot, MapPin, Brain, Sparkles } from 'lucide-react';
 import StatCard from '../system/StatCard';
 import AnimatedBrainCells from '../brain/AnimatedBrainCells';
@@ -98,13 +99,39 @@ const Header = ({ evolution = "68.4%", onlineAgents = 6 }) => {
         </div>
       </div>
 
-      {/* Real-Time Agent Online Glowing Status Announcement */}
-      {agentGreeting && (
-        <div className="hidden sm:flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-[10.5px] font-mono font-bold animate-pulse shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-          <Sparkles size={12} className="text-cyan-400" />
-          <span className="capitalize">{agentGreeting}</span>
-        </div>
-      )}
+      {/* Real-Time Agent Online Next-Level Sci-Fi HUD Announcement */}
+      <AnimatePresence>
+        {agentGreeting && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -4 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-[#040d21]/90 border border-cyan-400/40 text-cyan-300 backdrop-blur-xl shadow-[0_0_20px_rgba(0,229,255,0.25),inset_0_0_10px_rgba(0,229,255,0.1)] relative overflow-hidden shrink-0 whitespace-nowrap"
+          >
+            {/* Corner Bracket Accents */}
+            <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-cyan-400" />
+            <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-cyan-400" />
+            <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-cyan-400" />
+            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-cyan-400" />
+
+            {/* Shimmer sweep line */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent animate-shimmer pointer-events-none" />
+
+            {/* Pulsing Sync Beacon */}
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00FF88] shadow-[0_0_8px_#00ff88]" />
+            </span>
+
+            <Sparkles size={11} className="text-cyan-400 shrink-0" />
+
+            <span className="text-[8.5px] font-black uppercase tracking-[0.2em] text-cyan-200 font-mono drop-shadow-[0_0_8px_rgba(0,229,255,0.6)]">
+              {agentGreeting}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Telemetry metrics row */}
       <div className="hidden md:flex items-center bg-black/40 border border-blue-500/[0.12] rounded-xl py-1 px-2 backdrop-blur-sm gap-1">
