@@ -205,6 +205,173 @@ async def list_agents_status():
     }
 
 
+# ==========================================
+# ORIAN AI MOBILE IoT CONTROL & TELEMETRY API
+# ==========================================
+class IoTCommandRequest(BaseModel):
+    device_id: Optional[str] = None
+    command: str
+    payload: Optional[Dict[str, Any]] = None
+
+class IoTScheduleRequest(BaseModel):
+    device_id: str
+    command: str
+    delay_minutes: Optional[float] = 0
+    recurrence: Optional[str] = "once"
+    payload: Optional[Dict[str, Any]] = None
+
+class IoTESP32HeartbeatRequest(BaseModel):
+    device_id: str
+    ip_address: Optional[str] = None
+    status: Optional[str] = "ONLINE"
+    firmware_version: Optional[str] = "2.0"
+
+class IoTESP32TelemetryRequest(BaseModel):
+    device_id: str
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    motion: Optional[str] = None
+    telemetry: Optional[Dict[str, Any]] = None
+
+@app.get("/api/iot/devices")
+async def list_iot_devices():
+    """Lists all registered IoT hardware devices."""
+    from features.iot.device_manager import device_manager
+    devices = device_manager.list_all_devices()
+    return {
+        "success": True,
+        "count": len(devices),
+        "devices": devices
+    }
+
+@app.post("/api/iot/command")
+async def dispatch_iot_command(req: IoTCommandRequest):
+    """Executes atomic or natural language IoT command."""
+    from features.iot.iot_tool import iot_tool
+    if req.device_id:
+        if req.command in ["turn_on", "on"]:
+            res = iot_tool.turn_on(req.device_id)
+        elif req.command in ["turn_off", "off"]:
+            res = iot_tool.turn_off(req.device_id)
+        elif req.command in ["toggle"]:
+            res = iot_tool.toggle(req.device_id)
+        else:
+            res = iot_tool.execute_natural_command(f"{req.command} {req.device_id}")
+    else:
+        res = iot_tool.execute_natural_command(req.command)
+
+    return res
+
+@app.get("/api/iot/telemetry")
+async def get_iot_telemetry():
+    """Fetches real-time climate and sensor telemetry."""
+    from features.iot.telemetry import iot_telemetry
+    climate = iot_telemetry.get_latest_climate()
+    history = iot_telemetry.get_telemetry_history(limit=20)
+    return {
+        "success": True,
+        "climate": climate,
+        "history": history
+    }
+
+@app.get("/api/iot/schedules")
+async def list_iot_schedules():
+    """Lists all active persistent IoT automation schedules."""
+    from features.iot.scheduler import iot_scheduler
+    schedules = iot_scheduler.list_schedules(status="ACTIVE")
+    return {
+        "success": True,
+        "count": len(schedules),
+        "schedules": schedules
+    }
+
+@app.post("/api/iot/schedule")
+async def create_iot_schedule(req: IoTScheduleRequest):
+    """Creates a new persistent scheduled IoT action."""
+    from features.iot.iot_tool import iot_tool
+    res = iot_tool.schedule_action(
+        device_identifier=req.device_id,
+        command=req.command,
+        minutes_delay=req.delay_minutes or 0
+    )
+    return res
+
+@app.delete("/api/iot/schedule/{schedule_id}")
+async def delete_iot_schedule(schedule_id: str):
+    """Cancels a scheduled IoT action."""
+    from features.iot.scheduler import iot_scheduler
+    success = iot_scheduler.cancel_schedule(schedule_id)
+    return {"success": success, "schedule_id": schedule_id}
+
+@app.get("/api/iot/health")
+async def get_iot_health_check():
+    """Runs complete end-to-end IoT system diagnostic test."""
+    from features.iot.health_check import iot_health_check
+    diag = iot_health_check.run_health_check()
+    return {
+        "success": True,
+        "health": diag
+    }
+
+@app.post("/api/iot/esp32/heartbeat")
+async def esp32_heartbeat(req: IoTESP32HeartbeatRequest):
+    """Direct REST heartbeat receiver for ESP32 devices."""
+    from features.iot.device_manager import device_manager
+    updated = device_manager.update_heartbeat(req.device_id, ip_address=req.ip_address)
+    return {"success": updated, "device_id": req.device_id, "status": "ONLINE"}
+
+@app.post("/api/iot/esp32/telemetry")
+async def esp32_telemetry_inbound(req: IoTESP32TelemetryRequest):
+    """Direct REST telemetry receiver for ESP32 sensor feeds."""
+    from features.iot.telemetry import iot_telemetry
+    if req.temperature is not None:
+        iot_telemetry.record_reading(req.device_id, "temperature", req.temperature, unit="°C")
+    if req.humidity is not None:
+        iot_telemetry.record_reading(req.device_id, "humidity", req.humidity, unit="%")
+    if req.telemetry:
+        for k, v in req.telemetry.items():
+            if isinstance(v, (int, float)):
+                iot_telemetry.record_reading(req.device_id, k, float(v))
+
+    return {"success": True, "device_id": req.device_id}
+
+@app.websocket("/ws/iot")
+async def websocket_iot_endpoint(websocket: WebSocket):
+    """Real-time WebSocket stream for mobile IoT dashboard updates and telemetry."""
+    await websocket.accept()
+    from features.iot.device_manager import device_manager
+    from features.iot.telemetry import iot_telemetry
+
+    try:
+        # Initial snapshot
+        devices = device_manager.list_all_devices()
+        climate = iot_telemetry.get_latest_climate()
+        await websocket.send_json({
+            "event": "IOT_SNAPSHOT",
+            "devices": devices,
+            "climate": climate,
+            "timestamp": time.time()
+        })
+
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+            elif data == "refresh":
+                devs = device_manager.list_all_devices()
+                clim = iot_telemetry.get_latest_climate()
+                await websocket.send_json({
+                    "event": "IOT_SNAPSHOT",
+                    "devices": devs,
+                    "climate": clim,
+                    "timestamp": time.time()
+                })
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+
+
 # Load OpenCV Haar Cascades
 def load_cascade(name):
     if cv2 is None:

@@ -24,6 +24,7 @@ const MemoryTimeline = lazy(() => import('../features/tasks/MemoryTimeline'));
 const AICore = lazy(() => import('../features/brain/AICore'));
 const ActiveAutomations = lazy(() => import('../features/tasks/ActiveAutomations'));
 const SystemStatus = lazy(() => import('../features/system/SystemStatus'));
+const IoTModalDashboard = lazy(() => import('../features/iot/IoTModalDashboard'));
 
 
 
@@ -47,6 +48,7 @@ const FirstPageLayoutContent = () => {
   const [onlineAgents, setOnlineAgents] = useState(6);
   const [isMobile, setIsMobile] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isIoTModalOpen, setIsIoTModalOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -347,6 +349,11 @@ const FirstPageLayoutContent = () => {
     setInput('');
     addLog(`INITIALIZING_QUERY: "${textToSend}"`, 'EXEC', 'INFO');
 
+    // Trigger IoT Dashboard modal directly if requested by speech/text
+    if (/open\s+iot|show\s+iot|iot\s+dashboard|iot\s+control|iot\s+modal/i.test(textToSend)) {
+      setIsIoTModalOpen(true);
+    }
+
     try {
       // 1. Dispatch prompt to Autonomous Task Orchestrator & LLM Planner
       const dispatchRes = await dispatchPrompt(textToSend);
@@ -396,7 +403,12 @@ const FirstPageLayoutContent = () => {
 
 
   // Compile Header & Footer elements
-  const header = <Header evolution={evolution} onlineAgents={onlineAgents} />;
+  const header = (
+    <Header 
+      evolution={evolution} 
+      onlineAgents={onlineAgents} 
+    />
+  );
 
   const footer = (
     <div className="flex flex-col lg:flex-row gap-3 shrink-0 h-auto lg:h-20 w-full">
@@ -550,6 +562,9 @@ const FirstPageLayoutContent = () => {
           </AnimatePresence>
         </div>
         <WakeWordListener onWake={handleWake} />
+        <Suspense fallback={null}>
+          <IoTModalDashboard isOpen={isIoTModalOpen} onClose={() => setIsIoTModalOpen(false)} />
+        </Suspense>
       </>
     );
   }
@@ -603,6 +618,9 @@ const FirstPageLayoutContent = () => {
       </HUDContainer>
       <NotificationToastSystem toasts={toasts} onRemove={removeToast} />
       <WakeWordListener onWake={handleWake} />
+      <Suspense fallback={null}>
+        <IoTModalDashboard isOpen={isIoTModalOpen} onClose={() => setIsIoTModalOpen(false)} />
+      </Suspense>
     </>
   );
 

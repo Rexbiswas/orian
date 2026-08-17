@@ -28,6 +28,7 @@ from tools.math_engine import math_engine
 from planner.real_world_reasoner import real_world_reasoner
 from neural.self_diagnostic import self_diagnostic
 from neural.self_programmer import self_programmer
+from iot.iot_tool import iot_tool
 
 logger = logging.getLogger("orian.tool_router")
 
@@ -158,7 +159,20 @@ class OrianToolRouter:
                 details=res
             )
 
-        # 8. General LLM / Unhandled Fallback
+        # 8. Mobile IoT Hardware Control & Queries
+        elif intent in [IntentCategory.IOT_CONTROL, IntentCategory.IOT_QUERY]:
+            res = iot_tool.execute_natural_command(user_prompt)
+            return StandardToolResponse(
+                success=res.get("success", True),
+                action=res.get("action", "IOT_OPERATION"),
+                target=res.get("target", "IoT Device"),
+                message=res.get("message", "IoT command dispatched."),
+                error=res.get("error", ""),
+                recovery=res.get("recovery", ""),
+                details=res
+            )
+
+        # 9. General LLM / Unhandled Fallback
         else:
             return StandardToolResponse(
                 success=True,

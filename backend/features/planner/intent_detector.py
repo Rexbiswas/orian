@@ -32,6 +32,8 @@ class IntentCategory:
     SELF_DIAGNOSTIC = "SELF_DIAGNOSTIC"
     SELF_PROGRAMMING = "SELF_PROGRAMMING"
     FILE_SYSTEM_ACTION = "FILE_SYSTEM_ACTION"
+    IOT_CONTROL = "IOT_CONTROL"
+    IOT_QUERY = "IOT_QUERY"
     GENERAL_CONVERSATION = "GENERAL_CONVERSATION"
 
 class IntentDetector:
@@ -53,6 +55,22 @@ class IntentDetector:
         "create a new tool", "improve memory system"
     ]
 
+    IOT_CONTROL_KEYWORDS = [
+        "turn on", "turn off", "switch on", "switch off", "toggle", "turn everything off",
+        "turn off all", "turn on all", "turn everything on", "all lights off", "all lights on",
+        "turn on the light", "turn off the light", "turn on the fan", "turn off the fan",
+        "turn on my room light", "turn off my room light", "turn on led", "turn off led",
+        "toggle the bedroom light", "turn on the light for", "turn off the fan after"
+    ]
+
+    IOT_QUERY_KEYWORDS = [
+        "room temperature", "what's the temperature", "what is the temperature", "what's the room temperature",
+        "what is the room temperature", "is the door open", "is the light on", "is the fan on",
+        "show my iot", "find my iot", "find my esp32", "is my esp32 online", "is esp32 online",
+        "what devices are currently connected", "what devices are connected", "show my devices",
+        "check my iot", "iot health", "iot system", "humidity"
+    ]
+
     MATH_SIMPLE_PATTERN = re.compile(
         r'^\s*(?:what\s+is\s+|calculate\s+|solve\s+)?'
         r'[\d\.\s\+\-\*\/\%\^\(\)\,\{\}\[\]sqrtsincostanlogabs\:\=]+'
@@ -66,8 +84,10 @@ class IntentDetector:
     ]
 
     DESKTOP_APP_KEYWORDS = [
-        "open ", "launch ", "start ", "close ", "run ", "notepad", "calculator", "calc",
-        "chrome", "vscode", "vs code", "spotify", "discord", "file explorer", "cmd", "powershell"
+        "open notepad", "open calc", "open calculator", "open chrome", "open vscode", "open vs code",
+        "open spotify", "open discord", "open file explorer", "open cmd", "open powershell",
+        "open word", "open excel", "open powerpoint", "open access",
+        "close notepad", "close calc", "close calculator", "close chrome", "close vscode"
     ]
 
     FILE_KEYWORDS = [
@@ -83,37 +103,49 @@ class IntentDetector:
     def detect_intent(self, user_prompt: str) -> Tuple[str, float, Dict[str, Any]]:
         p = user_prompt.strip().lower()
 
-        # 1. Self-Programming
+        # 1. IoT Hardware Control & Queries (High Priority to prevent desktop app misrouting)
+        if any(k in p for k in ["room light", "bedroom light", "bedroom fan", "living room ac", "esp32", "room heater", "led", "fan on", "fan off", "light on", "light off", "climate sensor"]):
+            if any(verb in p for verb in ["turn on", "turn off", "switch on", "switch off", "toggle", "start", "stop", "for ", "after ", "in "]):
+                return IntentCategory.IOT_CONTROL, 0.98, {"raw_prompt": user_prompt}
+            return IntentCategory.IOT_QUERY, 0.95, {"raw_prompt": user_prompt}
+
+        if any(k in p for k in self.IOT_CONTROL_KEYWORDS):
+            return IntentCategory.IOT_CONTROL, 0.95, {"raw_prompt": user_prompt}
+
+        if any(k in p for k in self.IOT_QUERY_KEYWORDS):
+            return IntentCategory.IOT_QUERY, 0.95, {"raw_prompt": user_prompt}
+
+        # 2. Self-Programming
         if any(k in p for k in self.PROGRAMMING_KEYWORDS):
             return IntentCategory.SELF_PROGRAMMING, 0.95, {"raw_prompt": user_prompt}
 
-        # 2. Self-Diagnostics
+        # 3. Self-Diagnostics
         if any(k in p for k in self.DIAGNOSTIC_KEYWORDS):
             return IntentCategory.SELF_DIAGNOSTIC, 0.95, {"raw_prompt": user_prompt}
 
-        # 3. System Cleanup
+        # 4. System Cleanup
         if any(k in p for k in self.CLEANUP_KEYWORDS):
             return IntentCategory.SYSTEM_CLEANUP, 0.98, {"raw_prompt": user_prompt}
 
-        # 4. Simple Math Evaluation
+        # 5. Simple Math Evaluation
         if self._is_simple_math(p):
             expr = self._extract_math_expression(user_prompt)
             return IntentCategory.SIMPLE_CALCULATION, 0.95, {"expression": expr}
 
-        # 5. Advanced Math
+        # 6. Advanced Math
         if any(k in p for k in self.ADVANCED_MATH_KEYWORDS):
             return IntentCategory.ADVANCED_MATHEMATICS, 0.90, {"raw_prompt": user_prompt}
 
-        # 6. Desktop Control
+        # 7. Desktop Control (OS Applications)
         if any(p.startswith(verb) for verb in ["open ", "launch ", "start ", "close ", "run "]) or \
-           any(app in p for app in ["notepad", "calculator", "calc", "chrome", "vscode", "vs code", "spotify", "discord"]):
+           any(app in p for app in ["notepad", "calculator", "calc", "chrome", "vscode", "vs code", "spotify", "discord", "excel", "winword", "word", "powerpoint", "access"]):
             return IntentCategory.DESKTOP_ACTION, 0.92, {"raw_prompt": user_prompt}
 
-        # 7. File System Actions
+        # 8. File System Actions
         if any(k in p for k in self.FILE_KEYWORDS):
             return IntentCategory.FILE_SYSTEM_ACTION, 0.88, {"raw_prompt": user_prompt}
 
-        # 8. Real World Problem Solving
+        # 9. Real World Problem Solving
         if any(k in p for k in self.REAL_WORLD_KEYWORDS) or "how to" in p or "why is my" in p:
             return IntentCategory.REAL_WORLD_REASONING, 0.85, {"raw_prompt": user_prompt}
 
