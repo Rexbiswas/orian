@@ -113,19 +113,36 @@ class CognitiveBrain:
     def launch_app(self, app_name):
         app_name_clean = app_name.lower().strip()
         
-        # 1. Direct Shell Mapping (Fastest)
+        # 1. Direct Shell Mapping (Fastest & most robust)
         apps = {
+            "notepad": "notepad", "notes": "notepad", "notepad++": "notepad++",
+            "calc": "calc", "calculator": "calc",
+            "cmd": "cmd", "commandprompt": "cmd", "terminal": "wt", "powershell": "powershell",
+            "paint": "mspaint", "mspaint": "mspaint",
+            "explorer": "explorer", "files": "explorer", "mycomputer": "explorer",
+            "control": "control", "controlpanel": "control",
+            "taskmgr": "taskmgr", "taskmanager": "taskmgr",
+            "snippingtool": "snippingtool", "snip": "snippingtool",
             "excel": "excel", "word": "winword", "powerpoint": "powerpnt",
-            "chrome": "chrome", "edge": "msedge", "vscode": "code", "code": "code"
+            "chrome": "chrome", "edge": "msedge", "msedge": "msedge",
+            "vscode": "code", "code": "code", "visualstudiocode": "code",
+            "spotify": "spotify", "discord": "discord", "slack": "slack", "vlc": "vlc", "zoom": "zoom"
         }
-        target = apps.get(app_name_clean.replace(" ", ""))
+        
+        target = apps.get(app_name_clean.replace(" ", "")) or app_name_clean
         
         import subprocess
-        if target:
-            try:
-                subprocess.Popen(f"start {target}", shell=True)
-                return True
-            except: pass
+        try:
+            subprocess.Popen(f'start "" "{target}"', shell=True)
+            return True
+        except Exception:
+            pass
+
+        try:
+            os.system(f'start {target}')
+            return True
+        except Exception:
+            pass
 
         # 2. Neural Shortcut Scan (Search Desktop/Start Menu)
         try:
@@ -133,10 +150,12 @@ class CognitiveBrain:
             if found_path:
                 os.startfile(found_path)
                 return True
-        except: pass
+        except Exception:
+            pass
 
         # 3. Last Resort: Intelligent System Search (Win + Type)
         try:
+            import pyautogui
             pyautogui.press('win')
             import time
             time.sleep(0.3)

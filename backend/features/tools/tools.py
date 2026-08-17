@@ -18,6 +18,7 @@ if _feat_dir not in sys.path:
     sys.path.insert(0, _feat_dir)
 
 import os
+import re
 import time
 import subprocess
 import logging
@@ -71,11 +72,13 @@ class LaunchAppTool(BaseTool):
         if not app_name:
             return ToolResult(False, "", "app_name parameter missing")
         
-        success = brain.launch_app(app_name)
+        clean_name = re.sub(r'(?i)\b(open|launch|start|run|the)\b', '', app_name).strip() or app_name
+        
+        success = brain.launch_app(clean_name) or brain.launch_app(app_name)
         if success:
             time.sleep(0.5)
-            return ToolResult(True, f"Application '{app_name}' launched successfully.")
-        return ToolResult(False, "", f"Could not launch executable or shortcut for '{app_name}'.")
+            return ToolResult(True, f"Application '{clean_name}' launched successfully.")
+        return ToolResult(False, "", f"Could not launch executable or shortcut for '{clean_name}'.")
 
 
 class WriteFileTool(BaseTool):
