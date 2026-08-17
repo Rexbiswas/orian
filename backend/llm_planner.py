@@ -16,6 +16,6 @@ if backend_dir not in sys.path:
 if features_dir not in sys.path:
     sys.path.insert(0, features_dir)
 
-from features.planner.task_planner import task_planner, task_planner as planner, ExecutionPlan, SubTask
+from features.planner.llm_planner import LLMPlanner, LLMPlanner as planner, ExecutionPlan, PlannedStep
 
-__all__ = ["task_planner", "planner", "ExecutionPlan", "SubTask"]
+__all__ = ["LLMPlanner", "planner", "ExecutionPlan", "PlannedStep"]

@@ -283,8 +283,22 @@ const FirstPageLayoutContent = () => {
       if (dispatchRes && dispatchRes.count > 0) {
         feedback = `Right away. Dispatched ${dispatchRes.count} action${dispatchRes.count > 1 ? 's' : ''} in real time.`;
       } else {
-        const res = await axios.post(`${API_BASE_URL}/api/brain/chat`, { text: textToSend });
-        feedback = res.data.response || "Neural query executed successfully.";
+        let chatRes;
+        const urls = [
+          `${API_BASE_URL}/api/brain/chat`,
+          'http://127.0.0.1:8000/api/brain/chat',
+          'http://localhost:8000/api/brain/chat'
+        ].filter(Boolean);
+
+        for (const url of urls) {
+          try {
+            chatRes = await axios.post(url, { text: textToSend }, { timeout: 5000 });
+            if (chatRes.data && chatRes.data.success) break;
+          } catch (e) {
+            continue;
+          }
+        }
+        feedback = chatRes?.data?.response || "Neural query executed successfully.";
       }
 
       setAiOutput(feedback);

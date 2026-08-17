@@ -40,6 +40,14 @@ class ExecutionPlan(BaseModel):
     user_query: str
     tasks: List[SubTask]
 
+    @property
+    def goal(self) -> str:
+        return self.user_query
+
+    @property
+    def steps(self) -> List[Any]:
+        return self.tasks
+
 class TaskPlanner:
     """Central Task Planner decomposing high-level user goals into executable subtasks."""
 

@@ -119,15 +119,28 @@ export function useTaskOrchestrator() {
 
   const dispatchPrompt = useCallback(async (prompt) => {
     if (!prompt || !prompt.trim()) return;
-    try {
-      const res = await axios.post(`${API_BASE_URL}/api/tasks/dispatch`, { prompt });
-      if (res.data && res.data.tasks) {
-        setTasks(res.data.all_tasks || []);
-        addToast('Prompt Dispatched', `Queued ${res.data.count} parallel tasks.`, 'info');
+    let res;
+    const urls = [
+      `${API_BASE_URL}/api/tasks/dispatch`,
+      'http://127.0.0.1:8000/api/tasks/dispatch',
+      'http://localhost:8000/api/tasks/dispatch'
+    ].filter(Boolean);
+
+    for (const url of urls) {
+      try {
+        res = await axios.post(url, { prompt }, { timeout: 4000 });
+        if (res.data && res.data.success) break;
+      } catch (e) {
+        continue;
       }
+    }
+
+    if (res && res.data && res.data.tasks) {
+      setTasks(res.data.all_tasks || []);
+      addToast('Prompt Dispatched', `Queued ${res.data.count} parallel tasks.`, 'info');
       return res.data;
-    } catch (e) {
-      addToast('Dispatch Error', e.message, 'error');
+    } else {
+      addToast('Dispatch Error', 'Could not reach backend server at 127.0.0.1:8000', 'error');
     }
   }, [addToast]);
 

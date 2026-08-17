@@ -91,6 +91,9 @@ class ToolRegistry:
             tools.append(t.model_dump())
         return tools
 
+    def get_all_schemas(self) -> List[Dict[str, Any]]:
+        return self.list_tools()
+
     async def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         tool = self.get_tool(name)
         if not tool or not tool.handler:
