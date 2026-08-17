@@ -3,10 +3,11 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { LogProvider, useLogs } from '../context/LogContext';
 import { VoiceProvider, useVoice } from '../context/VoiceContext';
-import { speak } from '../utils/voice';
+import { speak, unlockAudio } from '../utils/voice';
+import { playSuccessChime, playMicActivate } from '../utils/sound';
 import { AudioRecorder } from '../utils/audioRecorder';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, AudioLines } from 'lucide-react';
+import { MessageSquare, X, AudioLines, Volume2 } from 'lucide-react';
 import WakeWordListener from '../mobile/WakeWordListener';
 
 // Eagerly loaded components from features
@@ -133,12 +134,36 @@ const FirstPageLayoutContent = () => {
     }
   }, [setIsListening, addLog]);
 
-  // Initial greeting & user interaction listener
+  const pendingGreetingRef = useRef('');
+  const hasSpokenGreetingRef = useRef(false);
+
+  const speakGreeting = useCallback(async (text) => {
+    const textToSpeak = text || pendingGreetingRef.current || aiOutput;
+    if (!textToSpeak) return;
+    try {
+      unlockAudio();
+      hasSpokenGreetingRef.current = true;
+      await speak(textToSpeak, setSpeakingState);
+    } catch (e) {
+      console.warn("Greeting voice output fault:", e);
+    }
+  }, [aiOutput, setSpeakingState]);
+
+
+  // Initial greeting & mobile/desktop user interaction listener
   useEffect(() => {
     const enableAudioAndListen = () => {
       autoListenRef.current = true;
+      unlockAudio();
+      if (!hasSpokenGreetingRef.current && pendingGreetingRef.current) {
+        speakGreeting(pendingGreetingRef.current);
+      }
     };
 
+    // Listen to touch events for mobile touchscreens (iOS Safari, Android Chrome, WebViews)
+    window.addEventListener('touchstart', enableAudioAndListen, { once: true, passive: true });
+    window.addEventListener('touchend', enableAudioAndListen, { once: true, passive: true });
+    window.addEventListener('pointerdown', enableAudioAndListen, { once: true, passive: true });
     window.addEventListener('click', enableAudioAndListen, { once: true });
     window.addEventListener('keydown', enableAudioAndListen, { once: true });
 
@@ -148,23 +173,42 @@ const FirstPageLayoutContent = () => {
       const greet = async () => {
         try {
           const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
-          setAiOutput(res.data.greeting);
+          const msg = res.data.greeting || "Hello master, I am Orian. Neural link established.";
+          setAiOutput(msg);
+          pendingGreetingRef.current = msg;
           addLog('VOICE_LINK_ESTABLISHED', 'SYS', 'SUCCESS');
-          await speak(res.data.greeting, setSpeakingState);
+          
+          try {
+            await speak(msg, (speaking, audio) => {
+              setSpeakingState(speaking, audio);
+              if (speaking) hasSpokenGreetingRef.current = true;
+            });
+          } catch (err) {
+            console.warn("Initial autoplay blocked on mobile, will play upon first touch/tap");
+          }
         } catch (e) {
           const fallback = "Hello master, I am Orian. Neural systems established.";
           setAiOutput(fallback);
-          await speak(fallback, setSpeakingState);
+          pendingGreetingRef.current = fallback;
+          try {
+            await speak(fallback, (speaking, audio) => {
+              setSpeakingState(speaking, audio);
+              if (speaking) hasSpokenGreetingRef.current = true;
+            });
+          } catch (err) {}
         }
       };
       greet();
     }
 
     return () => {
+      window.removeEventListener('touchstart', enableAudioAndListen);
+      window.removeEventListener('touchend', enableAudioAndListen);
+      window.removeEventListener('pointerdown', enableAudioAndListen);
       window.removeEventListener('click', enableAudioAndListen);
       window.removeEventListener('keydown', enableAudioAndListen);
     };
-  }, [setSpeakingState, addLog]);
+  }, [setSpeakingState, addLog, speakGreeting]);
 
   // Dedicated Real-Time Brain Evolution & AI Agents Sync Hook
   useEffect(() => {
@@ -215,17 +259,21 @@ const FirstPageLayoutContent = () => {
   }, []);
 
   const handleWake = useCallback(() => {
+    unlockAudio();
+    playMicActivate();
     addLog('WAKE_WORD_SPOTTED: "HELLO ORIAN"', 'BRAIN', 'SUCCESS');
     setIsChatOpen(true);
     autoListenRef.current = true;
     startVADListening();
   }, [addLog, startVADListening]);
 
-  const handleCtaClick = () => {
-    setIsChatOpen(true);
+  const handleCtaClick = useCallback(() => {
+    unlockAudio();
+    playSuccessChime();
+    setIsChatOpen(prev => !prev);
     const triggerBtn = document.getElementById('wake-word-permission-trigger');
     if (triggerBtn) triggerBtn.click();
-  };
+  }, []);
 
   // Toggle voice command recording (fallback method)
   const toggleListening = async () => {
@@ -370,8 +418,27 @@ const FirstPageLayoutContent = () => {
             <span className="text-[8px] text-slate-500 font-bold border border-slate-800 px-2 py-0.5 rounded">EVO: {evolution}</span>
           </div>
 
-          {/* Empty Spacer */}
-          <div className="flex-1" />
+          {/* Center Mobile Voice & Greeting Trigger */}
+          <div className="z-20 flex flex-col items-center gap-3 my-auto max-w-[90%] text-center">
+            <button
+              onClick={() => {
+                unlockAudio();
+                playSuccessChime();
+                speakGreeting();
+              }}
+              title="Hear Greeting Voice"
+              aria-label="Hear Greeting Voice"
+              className="flex items-center gap-2.5 px-5 py-3 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 backdrop-blur-xl active:scale-95 transition-all shadow-[0_0_25px_rgba(0,229,255,0.25)] hover:bg-cyan-500/25 cursor-pointer min-h-[48px] touch-target group"
+            >
+              <Volume2 size={18} className={isSpeaking ? "animate-pulse text-cyan-200" : "text-cyan-400 group-hover:scale-110 transition-transform"} />
+              <span className="text-xs font-bold tracking-wider uppercase">
+                {isSpeaking ? "Orian Speaking..." : "Play Voice Greeting"}
+              </span>
+            </button>
+            <div className="text-[10px] text-slate-400 font-mono line-clamp-3 max-w-xs bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 backdrop-blur-md">
+              {aiOutput}
+            </div>
+          </div>
 
           {/* Bottom Right: Circular CTA Button */}
           <div className="fixed bottom-6 right-6 z-40">

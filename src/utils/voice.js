@@ -2,18 +2,45 @@ import { PROXY_BASE_URL } from '../config';
 
 const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 
-// Helper to select the best available English voice in the browser
+// Helper to select the best available English voice in the browser (Desktop & Mobile)
 const getEnglishVoice = () => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
   return (
-    voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Zira') || v.name.includes('David') || v.name.includes('Samantha'))) ||
-    voices.find(v => v.lang.startsWith('en')) ||
+    voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Daniel') || v.name.includes('Zira') || v.name.includes('David'))) ||
+    voices.find(v => v.lang.startsWith('en') || v.lang === 'en-US' || v.lang === 'en-GB') ||
     voices[0] ||
     null
   );
+};
+
+// Explicit mobile audio unlocker to bypass iOS/Android autoplay restrictions
+export const unlockAudio = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    // 1. Unlock Web Audio Context
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    }
+
+    // 2. Unlock SpeechSynthesis
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+    }
+  } catch (e) {
+    // Audio unlock suppressed
+  }
 };
 
 // Ensure browser voices are preloaded
