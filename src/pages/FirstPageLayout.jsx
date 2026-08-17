@@ -43,6 +43,7 @@ const FirstPageLayoutContent = () => {
   const [input, setInput] = useState('');
   const [aiOutput, setAiOutput] = useState('ORIAN AI OS initialized. All neural cores synced.');
   const [evolution, setEvolution] = useState('68.4%');
+  const [onlineAgents, setOnlineAgents] = useState(6);
   const [isMobile, setIsMobile] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -163,22 +164,54 @@ const FirstPageLayoutContent = () => {
       greet();
     }
 
-    // Fetch brain evolution metrics
-    const fetchEvo = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/sys/evolution`);
-        if (res.data.success) {
-          setEvolution(res.data.metrics.evolution);
-        }
-      } catch (err) {}
-    };
-    fetchEvo();
-
     return () => {
       window.removeEventListener('click', enableAudioAndListen);
       window.removeEventListener('keydown', enableAudioAndListen);
     };
   }, [setSpeakingState, addLog, startVADListening]);
+
+  // Dedicated Real-Time Brain Evolution & AI Agents Sync Hook
+  useEffect(() => {
+    let isMounted = true;
+    const fetchEvo = async () => {
+      try {
+        let res;
+        const urls = [
+          `${API_BASE_URL}/api/sys/evolution`,
+          'http://127.0.0.1:8000/api/sys/evolution',
+          'http://localhost:8000/api/sys/evolution'
+        ].filter(Boolean);
+
+        for (const url of urls) {
+          try {
+            res = await axios.get(url, { timeout: 2000 });
+            if (res.data && res.data.success) break;
+          } catch (e) {
+            continue;
+          }
+        }
+
+        if (isMounted && res && res.data && res.data.success && res.data.metrics) {
+          if (res.data.metrics.evolution) {
+            setEvolution(res.data.metrics.evolution);
+          }
+          if (res.data.metrics.online_agents !== undefined) {
+            setOnlineAgents(res.data.metrics.online_agents);
+          }
+        }
+      } catch (err) {
+        console.warn('[RealTimeSync] Evolution query error:', err.message);
+      }
+    };
+
+    fetchEvo();
+    const evoInterval = setInterval(fetchEvo, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(evoInterval);
+    };
+  }, []);
 
   // Handle webcam sense feeds
   const handleSenseUpdate = useCallback((senses) => {
@@ -273,7 +306,7 @@ const FirstPageLayoutContent = () => {
 
 
   // Compile Header & Footer elements
-  const header = <Header evolution={evolution} />;
+  const header = <Header evolution={evolution} onlineAgents={onlineAgents} />;
 
   const footer = (
     <div className="flex flex-col lg:flex-row gap-3 shrink-0 h-auto lg:h-20 w-full">
