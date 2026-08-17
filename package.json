@@ -8,7 +8,10 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "vite --host",
-    "dev:all": "concurrently -n \"backend,server,bridge,frontend\" -c \"green,blue,magenta,cyan\" \"cd backend && python main.py\" \"npm run dev --prefix server\" \"npx -y @hackerai/local@latest --token hsb_b14367f6b37d02aff7c5c964f4eb9799e2497de2de49f1daa88fcfde6f130465 --name \\\"My Machine\\\"\" \"npm run dev\"",
+    "dev:backend": "python backend/main.py",
+    "dev:server": "npm run dev --prefix server",
+    "dev:frontend": "npm run dev",
+    "dev:all": "concurrently -n \"backend,server,bridge,frontend\" -c \"green,blue,magenta,cyan\" \"python backend/main.py\" \"npm run dev --prefix server\" \"npx -y @hackerai/local@latest --token hsb_b14367f6b37d02aff7c5c964f4eb9799e2497de2de49f1daa88fcfde6f130465 --name \\\"My Machine\\\"\" \"npm run dev\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
