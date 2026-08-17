@@ -40,7 +40,23 @@ class ApplicationResolver:
         "mspaint": "mspaint.exe",
         "paint": "mspaint.exe",
         "taskmgr": "taskmgr.exe",
-        "wordpad": "wordpad.exe"
+        "wordpad": "wordpad.exe",
+        "excel": "excel.exe",
+        "ms excel": "excel.exe",
+        "microsoft excel": "excel.exe",
+        "word": "winword.exe",
+        "ms word": "winword.exe",
+        "microsoft word": "winword.exe",
+        "winword": "winword.exe",
+        "powerpoint": "powerpnt.exe",
+        "ms powerpoint": "powerpnt.exe",
+        "microsoft powerpoint": "powerpnt.exe",
+        "ppt": "powerpnt.exe",
+        "powerpnt": "powerpnt.exe",
+        "access": "msaccess.exe",
+        "ms access": "msaccess.exe",
+        "microsoft access": "msaccess.exe",
+        "msaccess": "msaccess.exe"
     }
 
     def __init__(self):
@@ -82,6 +98,14 @@ class ApplicationResolver:
             r"C:\Program Files\Microsoft VS Code\Code.exe",
             os.path.expanduser(r"~\AppData\Roaming\Spotify\Spotify.exe"),
             os.path.expanduser(r"~\AppData\Local\Discord\Update.exe"),
+            r"C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\EXCEL.EXE",
+            r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\WINWORD.EXE",
+            r"C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\POWERPNT.EXE",
+            r"C:\Program Files\Microsoft Office\root\Office16\MSACCESS.EXE",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\MSACCESS.EXE",
         ]
         for p in common_paths:
             if os.path.exists(p):
@@ -188,7 +212,17 @@ class ApplicationResolver:
             time.sleep(1.0)
 
             # Check for new PID
-            search_terms = [clean_target.lower(), "calculatorapp", "calculator", "calc"] if "calc" in clean_target.lower() else [clean_target.lower()]
+            search_terms = [clean_target.lower()]
+            if "calc" in clean_target.lower():
+                search_terms.extend(["calculatorapp", "calculator", "calc"])
+            elif "excel" in clean_target.lower():
+                search_terms.extend(["excel", "excel.exe"])
+            elif "word" in clean_target.lower():
+                search_terms.extend(["winword", "word", "winword.exe"])
+            elif "powerpoint" in clean_target.lower() or "ppt" in clean_target.lower():
+                search_terms.extend(["powerpnt", "powerpoint", "powerpnt.exe"])
+            elif "access" in clean_target.lower():
+                search_terms.extend(["msaccess", "access", "msaccess.exe"])
             for proc in psutil.process_iter(['pid', 'name']):
                 try:
                     pname = proc.info['name'].lower()
