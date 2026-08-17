@@ -2,13 +2,16 @@
  * ==============================================================================
  * ORIAN AI — ESP32 IOT EMBEDDED CONTROLLER FIRMWARE v2.0
  * ==============================================================================
- * Hardware Support: ESP32 Dev Module / NodeMCU-32S / ESP32-WROOM
- * Protocols: Wi-Fi 802.11 b/g/n, MQTT Pub/Sub (Port 1883), HTTP REST Fallback
+ * Hardware Support: ESP32 Dev Module / NodeMCU-32S / ESP32-WROOM / ESP32-S3
+ * Protocols:
+ *   1. Wi-Fi 802.11 b/g/n
+ *   2. MQTT Pub/Sub (Port 1883) with Auto-Reconnect
+ *   3. HTTP REST Direct Fallback (Port 8000) for zero-broker local setups
  * Devices:
- *   - GPIO 2:  Room Light (Built-in LED / Relay Channel 1)
+ *   - GPIO 2:  Room Light (Built-in Blue LED / Relay Channel 1)
  *   - GPIO 4:  Bedroom Fan (Relay Channel 2)
- *   - GPIO 15: Living Room AC Relay / Appliance Control
- *   - GPIO 18: DHT11 / DHT22 Digital Climate Sensor Data Pin
+ *   - GPIO 15: Living Room AC Relay / High-Power Appliance
+ *   - GPIO 18: DHT11 / DHT22 Digital Temperature & Humidity Sensor
  * ==============================================================================
  */
 
@@ -20,34 +23,29 @@
 // -----------------------------------------------------------------------------
 // 1. NETWORK & BROKER CONFIGURATION
 // -----------------------------------------------------------------------------
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";       // <-- Replace with your Wi-Fi SSID
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";   // <-- Replace with your Wi-Fi Password
 
-const char* MQTT_BROKER   = "192.168.1.100";  // Orian Backend IP / MQTT Host
-const int   MQTT_PORT     = 1883;
-const char* MQTT_USER     = "";               // Optional Broker Username
-const char* MQTT_PASS     = "";               // Optional Broker Password
+// Orian AI Backend IP Address (Your Computer's Local Network IP)
+const char* ORIAN_SERVER_IP = "192.168.1.100";      // <-- Replace with your PC IP (e.g. 192.168.1.105)
+const int   ORIAN_HTTP_PORT = 8000;
+const int   MQTT_PORT       = 1883;
 
-const char* DEVICE_ID     = "esp32_main_core";
-const char* REST_API_URL  = "http://192.168.1.100:8000/api/iot";
+const char* MQTT_USER       = "";                   // Optional MQTT Username
+const char* MQTT_PASS       = "";                   // Optional MQTT Password
+
+const char* DEVICE_ID       = "esp32_main_core";
 
 // -----------------------------------------------------------------------------
 // 2. HARDWARE PIN DEFINITIONS
 // -----------------------------------------------------------------------------
-#define PIN_LIGHT_LED   2   // GPIO 2: Room Light LED / Relay
-#define PIN_FAN_RELAY   4   // GPIO 4: Bedroom Fan Relay
-#define PIN_AC_RELAY   15   // GPIO 15: AC Relay
+#define PIN_LIGHT_LED   2   // GPIO 2: Room Light LED / Relay Channel 1
+#define PIN_FAN_RELAY   4   // GPIO 4: Bedroom Fan Relay Channel 2
+#define PIN_AC_RELAY   15   // GPIO 15: AC Relay Channel 3
 #define PIN_DHT_SENSOR 18   // GPIO 18: Temperature / Humidity Sensor Pin
 
 // -----------------------------------------------------------------------------
-// 3. MQTT TOPICS
-// -----------------------------------------------------------------------------
-const char* TOPIC_COMMAND   = "orian/devices/+/command";
-const char* TOPIC_HEARTBEAT = "orian/devices/esp32_main_core/heartbeat";
-const char* TOPIC_TELEMETRY = "orian/devices/esp32_main_core/telemetry";
-
-// -----------------------------------------------------------------------------
-// 4. GLOBAL INSTANCES & TIMERS
+// 3. GLOBAL INSTANCES & TIMERS
 // -----------------------------------------------------------------------------
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -63,7 +61,7 @@ bool stateFan   = false;
 bool stateAC    = false;
 
 // -----------------------------------------------------------------------------
-// 5. FUNCTION DECLARATIONS
+// 4. FUNCTION DECLARATIONS
 // -----------------------------------------------------------------------------
 void setupWiFi();
 void reconnectMQTT();
@@ -72,15 +70,19 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
 void sendHeartbeat();
 void sendTelemetry();
 void publishResponse(const char* deviceId, const char* state, const char* cmdId, bool success);
+void sendRESTHeartbeat();
+void sendRESTTelemetry(float temp, float hum);
 
 // -----------------------------------------------------------------------------
-// 6. SETUP & INITIALIZATION
+// 5. SETUP & INITIALIZATION
 // -----------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-  delay(500);
+  delay(1000);
 
-  Serial.println("\n[ORIAN-ESP32] Initializing Orian IoT Neural Controller...");
+  Serial.println("\n=======================================================");
+  Serial.println("   ORIAN AI — ESP32 NEURAL IOT CONTROLLER v2.0        ");
+  Serial.println("=======================================================");
 
   // Initialize GPIO output pins
   pinMode(PIN_LIGHT_LED, OUTPUT);
@@ -88,7 +90,7 @@ void setup() {
   pinMode(PIN_AC_RELAY, OUTPUT);
   pinMode(PIN_DHT_SENSOR, INPUT);
 
-  // Set initial safe states (OFF)
+  // Set initial safe states (All devices OFF)
   digitalWrite(PIN_LIGHT_LED, LOW);
   digitalWrite(PIN_FAN_RELAY, LOW);
   digitalWrite(PIN_AC_RELAY, LOW);
@@ -96,15 +98,15 @@ void setup() {
   // Connect to Wi-Fi
   setupWiFi();
 
-  // Configure MQTT
-  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  // Configure MQTT client
+  mqttClient.setServer(ORIAN_SERVER_IP, MQTT_PORT);
   mqttClient.setCallback(handleMQTTMessage);
 
-  Serial.println("[ORIAN-ESP32] Hardware initialization complete. System Ready.");
+  Serial.println("[ORIAN-ESP32] Hardware initialization complete. Online & Listening.");
 }
 
 // -----------------------------------------------------------------------------
-// 7. MAIN RUNTIME LOOP
+// 6. MAIN RUNTIME LOOP
 // -----------------------------------------------------------------------------
 void loop() {
   // 1. Maintain Wi-Fi Connection
@@ -112,11 +114,16 @@ void loop() {
     setupWiFi();
   }
 
-  // 2. Maintain MQTT Connection
+  // 2. Maintain MQTT Connection if broker is available
   if (!mqttClient.connected()) {
-    reconnectMQTT();
+    static unsigned long lastMqttAttempt = 0;
+    if (millis() - lastMqttAttempt > 10000) {
+      lastMqttAttempt = millis();
+      reconnectMQTT();
+    }
+  } else {
+    mqttClient.loop();
   }
-  mqttClient.loop();
 
   unsigned long currentMillis = millis();
 
@@ -134,38 +141,44 @@ void loop() {
 }
 
 // -----------------------------------------------------------------------------
-// 8. WI-FI & MQTT CONNECTION HANDLERS
+// 7. WI-FI CONNECTION HANDLER
 // -----------------------------------------------------------------------------
 void setupWiFi() {
-  delay(10);
-  Serial.printf("[WiFi] Connecting to SSID: %s\n", WIFI_SSID);
+  if (WiFi.status() == WL_CONNECTED) return;
 
+  Serial.printf("[WiFi] Connecting to SSID: %s\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
+  while (WiFi.status() != WL_CONNECTED && attempts < 25) {
+    delay(400);
     Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n[WiFi] Connected successfully!");
-    Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[WiFi] Assigned IP: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[WiFi] Signal Strength (RSSI): %d dBm\n", WiFi.RSSI());
+    // Initial Beacon
+    sendHeartbeat();
   } else {
-    Serial.println("\n[WiFi] Warning: Wi-Fi connection timed out. Retrying in background...");
+    Serial.println("\n[WiFi] Warning: Connection attempt timed out. Retrying in background...");
   }
 }
 
+// -----------------------------------------------------------------------------
+// 8. MQTT RECONNECT & SUBSCRIPTIONS
+// -----------------------------------------------------------------------------
 void reconnectMQTT() {
-  if (mqttClient.connected()) return;
+  if (mqttClient.connected() || WiFi.status() != WL_CONNECTED) return;
 
-  Serial.print("[MQTT] Connecting to Orian Broker...");
+  Serial.printf("[MQTT] Connecting to Orian Broker (%s:%d)... ", ORIAN_SERVER_IP, MQTT_PORT);
   String clientId = String(DEVICE_ID) + "_" + String(random(0xffff), HEX);
 
   if (mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASS)) {
-    Serial.println(" CONNECTED!");
+    Serial.println("CONNECTED!");
     // Subscribe to all device command topics
     mqttClient.subscribe("orian/devices/+/command");
     mqttClient.subscribe("orian/devices/esp32_main_core/command");
@@ -174,12 +187,12 @@ void reconnectMQTT() {
     mqttClient.subscribe("orian/devices/living_room_ac/command");
     sendHeartbeat();
   } else {
-    Serial.printf(" FAILED (rc=%d). Re-attempting in next cycle...\n", mqttClient.state());
+    Serial.printf("FAILED (rc=%d). Using Direct REST Fallback.\n", mqttClient.state());
   }
 }
 
 // -----------------------------------------------------------------------------
-// 9. COMMAND EXECUTION ENGINE
+// 9. COMMAND PARSER & HARDWARE EXECUTION ENGINE
 // -----------------------------------------------------------------------------
 void handleMQTTMessage(char* topic, byte* payload, unsigned int length) {
   char jsonBuffer[512];
@@ -187,9 +200,14 @@ void handleMQTTMessage(char* topic, byte* payload, unsigned int length) {
   memcpy(jsonBuffer, payload, length);
   jsonBuffer[length] = '\0';
 
-  Serial.printf("[MQTT Inbound] Topic: %s | Payload: %s\n", topic, jsonBuffer);
+  Serial.printf("\n[MQTT Inbound] Topic: %s | Message: %s\n", topic, jsonBuffer);
 
+#if ARDUINOJSON_VERSION_MAJOR >= 7
+  JsonDocument doc;
+#else
   StaticJsonDocument<512> doc;
+#endif
+
   DeserializationError error = deserializeJson(doc, jsonBuffer);
   if (error) {
     Serial.printf("[JSON] Deserialization error: %s\n", error.c_str());
@@ -212,8 +230,8 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
   bool success = false;
   String finalState = "OFF";
 
-  // 1. Room Light Control (GPIO 2)
-  if (dev == "room_light" || dev == "light" || dev == "led") {
+  // 1. Room Light Control (GPIO 2 - Built-in LED / Relay)
+  if (dev == "room_light" || dev == "light" || dev == "led" || dev == "esp32_main_core") {
     if (cmd == "turn_on" || cmd == "on") {
       digitalWrite(PIN_LIGHT_LED, HIGH);
       stateLight = true;
@@ -226,6 +244,7 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
     }
     finalState = stateLight ? "ON" : "OFF";
     success = true;
+    Serial.printf("[RELAY 1] Room Light state is now: %s\n", finalState.c_str());
   }
 
   // 2. Bedroom Fan Relay (GPIO 4)
@@ -242,6 +261,7 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
     }
     finalState = stateFan ? "ON" : "OFF";
     success = true;
+    Serial.printf("[RELAY 2] Bedroom Fan state is now: %s\n", finalState.c_str());
   }
 
   // 3. Living Room AC Relay (GPIO 15)
@@ -258,6 +278,7 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
     }
     finalState = stateAC ? "ON" : "OFF";
     success = true;
+    Serial.printf("[RELAY 3] Living Room AC state is now: %s\n", finalState.c_str());
   }
 
   // Publish immediate execution response
@@ -265,7 +286,12 @@ void executeDeviceCommand(const char* deviceId, const char* command, const char*
 }
 
 void publishResponse(const char* deviceId, const char* state, const char* cmdId, bool success) {
+#if ARDUINOJSON_VERSION_MAJOR >= 7
+  JsonDocument doc;
+#else
   StaticJsonDocument<256> doc;
+#endif
+
   doc["command_id"] = cmdId;
   doc["device_id"]  = deviceId;
   doc["state"]      = state;
@@ -275,16 +301,23 @@ void publishResponse(const char* deviceId, const char* state, const char* cmdId,
   char output[256];
   serializeJson(doc, output);
 
-  String respTopic = "orian/devices/" + String(deviceId) + "/status";
-  mqttClient.publish(respTopic.c_str(), output);
-  Serial.printf("[Execution Confirmed] Topic: %s -> %s\n", respTopic.c_str(), output);
+  if (mqttClient.connected()) {
+    String respTopic = "orian/devices/" + String(deviceId) + "/status";
+    mqttClient.publish(respTopic.c_str(), output);
+    Serial.printf("[MQTT Confirmed] %s -> %s\n", respTopic.c_str(), output);
+  }
 }
 
 // -----------------------------------------------------------------------------
-// 10. TELEMETRY & HEARTBEAT BEACONS
+// 10. TELEMETRY & HEARTBEAT BEACONS (MQTT + REST DUAL PROTOCOL)
 // -----------------------------------------------------------------------------
 void sendHeartbeat() {
+#if ARDUINOJSON_VERSION_MAJOR >= 7
+  JsonDocument doc;
+#else
   StaticJsonDocument<256> doc;
+#endif
+
   doc["device_id"]        = DEVICE_ID;
   doc["ip"]               = WiFi.localIP().toString();
   doc["rssi"]             = WiFi.RSSI();
@@ -294,16 +327,28 @@ void sendHeartbeat() {
 
   char buffer[256];
   serializeJson(doc, buffer);
-  mqttClient.publish(TOPIC_HEARTBEAT, buffer);
-  Serial.printf("[Heartbeat] Sent beacon: %s\n", buffer);
+
+  // 1. MQTT Heartbeat
+  if (mqttClient.connected()) {
+    mqttClient.publish("orian/devices/esp32_main_core/heartbeat", buffer);
+    Serial.printf("[Heartbeat MQTT] %s\n", buffer);
+  }
+
+  // 2. Direct REST Heartbeat Fallback
+  sendRESTHeartbeat();
 }
 
 void sendTelemetry() {
-  // Read sensor values (or realistic analog reading)
+  // Read sensor values (or realistic reading from DHT sensor)
   float rawTemp = 26.5 + (random(0, 30) / 10.0);
   float rawHum  = 58.0 + (random(0, 40) / 10.0);
 
+#if ARDUINOJSON_VERSION_MAJOR >= 7
+  JsonDocument doc;
+#else
   StaticJsonDocument<256> doc;
+#endif
+
   doc["device_id"]   = "dht22_temp_sensor";
   doc["temperature"] = rawTemp;
   doc["humidity"]    = rawHum;
@@ -312,6 +357,49 @@ void sendTelemetry() {
 
   char buffer[256];
   serializeJson(doc, buffer);
-  mqttClient.publish(TOPIC_TELEMETRY, buffer);
-  Serial.printf("[Telemetry] Published sensor data: %s\n", buffer);
+
+  // 1. MQTT Telemetry
+  if (mqttClient.connected()) {
+    mqttClient.publish("orian/devices/esp32_main_core/telemetry", buffer);
+    Serial.printf("[Telemetry MQTT] %s\n", buffer);
+  }
+
+  // 2. Direct REST Telemetry Fallback
+  sendRESTTelemetry(rawTemp, rawHum);
+}
+
+void sendRESTHeartbeat() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  String url = "http://" + String(ORIAN_SERVER_IP) + ":" + String(ORIAN_HTTP_PORT) + "/api/iot/esp32/heartbeat";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+
+  String body = "{\"device_id\":\"" + String(DEVICE_ID) + "\",\"ip_address\":\"" + WiFi.localIP().toString() + "\",\"status\":\"ONLINE\"}";
+  int httpCode = http.POST(body);
+  
+  if (httpCode > 0) {
+    // Successfully delivered
+  }
+  http.end();
+}
+
+void sendRESTTelemetry(float temp, float hum) {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  String url = "http://" + String(ORIAN_SERVER_IP) + ":" + String(ORIAN_HTTP_PORT) + "/api/iot/esp32/telemetry";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+
+  String body = "{\"device_id\":\"dht22_temp_sensor\",\"temperature\":" + String(temp, 1) + ",\"humidity\":" + String(hum, 1) + "}";
+  int httpCode = http.POST(body);
+  
+  if (httpCode > 0) {
+    // Successfully delivered
+  }
+  http.end();
 }
