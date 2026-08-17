@@ -1,4 +1,4 @@
-# Feature Package Init
+# Feature Module Init
 try:
     from .base_provider import *
 except Exception:

@@ -1,4 +1,4 @@
-# Feature Package Init
+# Feature Module Init
 try:
     from .memory_engine import *
 except Exception:

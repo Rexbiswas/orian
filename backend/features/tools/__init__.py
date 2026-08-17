@@ -1,4 +1,4 @@
-# Feature Package Init
+# Feature Module Init
 try:
     from .system_tools import *
 except Exception:
