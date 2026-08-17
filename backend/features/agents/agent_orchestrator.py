@@ -35,6 +35,15 @@ class BaseAgent:
         self.agent_type = agent_type
 
     async def execute_tool_call(self, task: Task, progress_cb: Callable[[Task], None], task_results_map: Dict[str, Any]) -> ToolResult:
+        from tools.tool_router import tool_router
+        tool_res_router = tool_router.route_and_execute(task.command)
+        if tool_res_router.action != "GENERAL_CONVERSATION":
+            task.current_action = f"Executing '{tool_res_router.action}' on {tool_res_router.target}"
+            task.add_log(f"ToolRouter [{tool_res_router.action}]: {tool_res_router.message}")
+            task.progress = 100
+            progress_cb(task)
+            return ToolResult(tool_res_router.success, tool_res_router.message, error=tool_res_router.error)
+
         tool = tool_registry.get_tool(task.tool_name)
         if not tool:
             # Fallback tool selection
