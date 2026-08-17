@@ -109,6 +109,42 @@ class OrianBrain:
             media_path=media_path
         )
 
+        # 1.5. UNIVERSAL COMMAND ROUTER & DETERMINISTIC TOOL EXECUTOR
+        from tools.tool_router import tool_router
+        tool_response = tool_router.route_and_execute(user_input)
+
+        if tool_response.action != "GENERAL_CONVERSATION":
+            await self._update_brain_state("EXECUTING")
+            
+            # Record execution in Cerebrum & Medulla via brain_db
+            try:
+                brain_db.execute("medulla",
+                    "INSERT INTO logs (request_id, module, level, event_type, message) VALUES (?, ?, ?, ?, ?)",
+                    (req_id, f"ToolRouter:{tool_response.action}", "INFO" if tool_response.success else "ERROR", tool_response.action, tool_response.message)
+                )
+            except Exception:
+                pass
+
+            await memory_manager.record_interaction(
+                session_id=sess_id,
+                user_input=user_input,
+                agent_response=tool_response.message,
+                user_id=user_id,
+                project_id=project_id
+            )
+            await self._update_brain_state("IDLE")
+
+            return {
+                "request_id": req_id,
+                "session_id": sess_id,
+                "brain_state": "IDLE",
+                "intent": {"action": tool_response.action, "target": tool_response.target},
+                "plan": {"action": tool_response.action, "success": tool_response.success},
+                "execution_results": [tool_response.model_dump()],
+                "response": tool_response.message,
+                "timestamp": time.time()
+            }
+
         # 2. MEMORY BRAIN (Hippocampus)
         await self._update_brain_state("RECALLING")
         cognitive_context = await memory_agent.prepare_cognitive_context(

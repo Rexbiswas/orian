@@ -15,13 +15,14 @@ import { VoiceInput, TextCommand } from '../features/chat';
 import { LiveTaskDashboard } from '../features/tasks';
 import { useTaskOrchestrator } from '../hooks/useTaskOrchestrator';
 
-import NeuralSchema from '../features/brain/NeuralSchema';
-import CircularCore from '../features/brain/CircularCore';
-import EmotionDetection from '../features/senses/EmotionDetection';
-import MemoryTimeline from '../features/tasks/MemoryTimeline';
-import AICore from '../features/brain/AICore';
-import ActiveAutomations from '../features/tasks/ActiveAutomations';
-import SystemStatus from '../features/system/SystemStatus';
+// Lazy-loaded feature components
+const NeuralSchema = lazy(() => import('../features/brain/NeuralSchema'));
+const CircularCore = lazy(() => import('../features/brain/CircularCore'));
+const EmotionDetection = lazy(() => import('../features/senses/EmotionDetection'));
+const MemoryTimeline = lazy(() => import('../features/tasks/MemoryTimeline'));
+const AICore = lazy(() => import('../features/brain/AICore'));
+const ActiveAutomations = lazy(() => import('../features/tasks/ActiveAutomations'));
+const SystemStatus = lazy(() => import('../features/system/SystemStatus'));
 
 
 

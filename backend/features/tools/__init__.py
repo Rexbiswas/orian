@@ -17,12 +17,7 @@ if _back_dir not in sys.path:
 if _feat_dir not in sys.path:
     sys.path.insert(0, _feat_dir)
 
-# Feature Module Init: Ensure tool_registry is created before importing tool handlers
-try:
-    from .tool_registry import *
-except Exception:
-    pass
-
+# Feature Module Init
 try:
     from .system_tools import *
 except Exception:
@@ -30,5 +25,10 @@ except Exception:
 
 try:
     from .tools import *
+except Exception:
+    pass
+
+try:
+    from .tool_registry import *
 except Exception:
     pass

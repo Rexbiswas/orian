@@ -103,36 +103,20 @@ async def run_terminal_command_handler(command: str, cwd: str = None) -> Dict[st
 
 # --- SYSTEM & AUTOMATION TOOLS ---
 @tool_registry.register(
-    name="launch_app",
-    description="Launches a desktop application by name (e.g. 'notepad', 'chrome', 'vscode', 'calc', 'excel').",
-    category="SystemTools",
-    permission_level="LOW"
-)
-@tool_registry.register(
-    name="open_app",
-    description="Alias for launch_app.",
-    category="SystemTools",
-    permission_level="LOW"
-)
-@tool_registry.register(
     name="open_application",
     description="Opens a software application on the operating system.",
     category="SystemTools",
     permission_level="LOW"
 )
 async def open_application_handler(app_name: str) -> Dict[str, Any]:
-    from brain import brain
-    success = brain.launch_app(app_name)
-    if success:
-        return {"app_name": app_name, "status": "launched", "success": True}
     try:
         if os.name == "nt":
             os.system(f"start {app_name}")
         else:
             subprocess.Popen([app_name])
-        return {"app_name": app_name, "status": "launched", "success": True}
+        return {"app_name": app_name, "status": "launched"}
     except Exception as e:
-        return {"app_name": app_name, "error": str(e), "success": False}
+        return {"app_name": app_name, "error": str(e)}
 
 @tool_registry.register(
     name="delete_files",

@@ -91,18 +91,6 @@ class ToolRegistry:
             tools.append(t.model_dump())
         return tools
 
-    def get_all_schemas(self) -> List[Dict[str, Any]]:
-        schemas = []
-        for t in self._tools.values():
-            schemas.append({
-                "name": t.name,
-                "description": t.description,
-                "category": t.category,
-                "permission_level": t.permission_level,
-                "parameters": t.input_schema
-            })
-        return schemas
-
     async def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         tool = self.get_tool(name)
         if not tool or not tool.handler:

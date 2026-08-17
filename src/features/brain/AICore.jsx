@@ -1,6 +1,7 @@
 import React from 'react';
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
+import AIModeCards from '../modes/AIModeCards';
 
 const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
   return (
@@ -29,7 +30,7 @@ const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
       </div>
 
       {/* 3D particle core canvas wrapper */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-2">
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-0.5">
         <CircularCore 
           emotion={emotion} 
           isSpeaking={isSpeaking} 
@@ -37,6 +38,9 @@ const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
           audioLevel={audioLevel} 
         />
       </div>
+
+      {/* 4 Mode settings badges */}
+      <AIModeCards />
     </GlassCard>
   );
 };

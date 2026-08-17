@@ -648,7 +648,25 @@ async def chat_with_brain(request: dict):
             brain.store_interaction(text, provided_response, "PUTER_JS_SYNC")
             return {"success": True, "response": provided_response}
 
-        # Automatically parse and dispatch prompt through Autonomous LLM Planner & Task Scheduler
+        # 1. Route through Universal Orian Tool Router for deterministic execution (Apps, Math, Cleanup, Diagnostics, Self-Programming)
+        from tools.tool_router import tool_router
+        tool_res = tool_router.route_and_execute(text)
+
+        if tool_res.action != "GENERAL_CONVERSATION":
+            neural_sys.add_neural_exp(5)
+            from brain_manager import brain_manager
+            brain_manager.record_interaction(text, tool_res.message, f"TOOL_ROUTER:{tool_res.action}")
+            brain.store_interaction(text, tool_res.message, f"TOOL_ROUTER:{tool_res.action}")
+            return {
+                "success": tool_res.success,
+                "response": tool_res.message,
+                "action": tool_res.action,
+                "target": tool_res.target,
+                "details": tool_res.details,
+                "error": tool_res.error
+            }
+
+        # 2. Automatically parse and dispatch prompt through Autonomous LLM Planner & Task Scheduler
         dispatched_tasks = await task_scheduler.add_prompt(text)
 
         if dispatched_tasks:

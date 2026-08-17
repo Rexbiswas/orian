@@ -83,4 +83,8 @@ class TaskPlanner:
             tasks=subtasks
         )
 
+    def decompose_goal(self, user_prompt: str, context_memory: str = "") -> Any:
+        from planner.llm_planner import LLMPlanner
+        return LLMPlanner.decompose_goal(user_prompt, context_memory)
+
 task_planner = TaskPlanner()

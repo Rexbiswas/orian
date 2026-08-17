@@ -1,42 +1,8 @@
-import React, { Suspense, Component } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import FirstPageLayout from './pages/FirstPageLayout';
 
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("React ErrorBoundary caught error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="w-full h-screen bg-[#020611] flex flex-col items-center justify-center font-mono text-cyan-400 p-6 select-none">
-          <div className="border border-cyan-500/40 bg-black/60 p-6 rounded-xl max-w-md w-full flex flex-col items-center gap-4 text-center">
-            <span className="text-xs font-bold uppercase tracking-widest text-red-400">ORIAN CORE RECOVERY</span>
-            <p className="text-[11px] text-slate-300">Neural layout encountered a runtime exception. Recovering interface...</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-cyan-500/20 border border-cyan-400/50 rounded text-xs font-bold hover:bg-cyan-500/40 transition-all cursor-pointer"
-            >
-              REINITIALIZE INTERFACE
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+const FirstPageLayout = lazy(() => import('./pages/FirstPageLayout'));
 
 const GlobalLoading = () => (
   <div className="w-full h-screen bg-[#020611] flex flex-col items-center justify-center font-mono text-slate-400 select-none relative overflow-hidden">
@@ -65,15 +31,13 @@ const GlobalLoading = () => (
 
 function App() {
   return (
-    <ErrorBoundary>
-      <HashRouter>
-        <Suspense fallback={<GlobalLoading />}>
-          <Routes>
-            <Route path="/" element={<FirstPageLayout />} />
-          </Routes>
-        </Suspense>
-      </HashRouter>
-    </ErrorBoundary>
+    <HashRouter>
+      <Suspense fallback={<GlobalLoading />}>
+        <Routes>
+          <Route path="/" element={<FirstPageLayout />} />
+        </Routes>
+      </Suspense>
+    </HashRouter>
   );
 }
 
