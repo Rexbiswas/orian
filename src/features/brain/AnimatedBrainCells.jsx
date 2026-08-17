@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Zap, Eye, Shield, Database, Code2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Brain, Zap, Eye, Shield, Database, Code2, Sparkles } from 'lucide-react';
 import { speak, unlockAudio } from '../../utils/voice';
 import { playSuccessChime, playMicActivate } from '../../utils/sound';
 import { useVoice } from '../../context/VoiceContext';
@@ -77,14 +77,12 @@ export const BRAIN_AGENTS = [
 const AnimatedBrainCells = ({ onAgentOnline }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCellId, setActiveCellId] = useState('titan');
-  const [activeAnnouncement, setActiveAnnouncement] = useState('');
   const { setSpeakingState } = useVoice();
   const menuRef = useRef(null);
 
   // Announce & speak agent online greeting
   const triggerAgentOnline = useCallback(async (agent) => {
     const greeting = `${agent.name.toLowerCase()} agent is online`;
-    setActiveAnnouncement(greeting);
     setActiveCellId(agent.id);
 
     unlockAudio();
@@ -106,10 +104,6 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
         detail: { agent, agentName: agent.name, message: greeting }
       }));
     }
-
-    setTimeout(() => {
-      setActiveAnnouncement('');
-    }, 4500);
   }, [setSpeakingState, onAgentOnline]);
 
   // Listen to remote or internal agent online events
@@ -143,78 +137,62 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
 
   return (
     <div className="relative inline-flex items-center" ref={menuRef}>
-      {/* Animated Glowing Brain Core Button */}
+      {/* Clean, Enlarged Normal Brain Icon Button with 6 Embedded Brain Cell Dots */}
       <button
         onClick={() => {
           unlockAudio();
           playMicActivate();
           setIsOpen(prev => !prev);
-          // Default click triggers TITAN AI online greeting if closed
           if (!isOpen) {
             const titanAgent = BRAIN_AGENTS.find(a => a.id === 'titan') || BRAIN_AGENTS[1];
             triggerAgentOnline(titanAgent);
           }
         }}
-        title="Orian Neural Brain & 6 Agent Cells"
+        title="Orian Neural Brain (6 Agent Cells)"
         aria-label="Orian Neural Brain"
-        className="relative group w-9 h-9 rounded-xl bg-gradient-to-br from-[#061536] to-[#020512] border border-cyan-400/40 hover:border-cyan-400 flex items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.25)] hover:shadow-[0_0_25px_rgba(0,229,255,0.5)] active:scale-95"
+        className="relative group w-10 h-10 rounded-xl bg-gradient-to-b from-[#061538] to-[#020718] border border-cyan-500/40 hover:border-cyan-400 flex flex-col items-center justify-center p-1 cursor-pointer transition-all duration-200 shadow-[0_0_15px_rgba(0,102,255,0.25)] hover:shadow-[0_0_20px_rgba(0,229,255,0.4)] active:scale-95"
       >
-        {/* Pulsing Synapse Rings */}
-        <span className="absolute -inset-1 rounded-xl border border-cyan-400/20 animate-ping pointer-events-none opacity-40" />
-        <span className="absolute -inset-0.5 rounded-xl border border-purple-500/30 animate-pulse pointer-events-none" />
+        {/* Crisp Normal Brain Icon */}
+        <Brain
+          size={21}
+          className="text-cyan-300 group-hover:text-white transition-colors"
+        />
 
-        {/* Orbiting Brain Synaptic Cell Particles */}
-        <div className="absolute inset-0 pointer-events-none overflow-visible">
-          {[0, 60, 120, 180, 240, 300].map((deg, idx) => (
-            <motion.span
-              key={deg}
-              animate={{
-                rotate: [deg, deg + 360],
-                scale: [0.8, 1.2, 0.8],
-                opacity: [0.4, 0.9, 0.4]
-              }}
-              transition={{
-                duration: 8 + idx,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-              className="absolute top-1/2 left-1/2 w-1.5 h-1.5 -ml-[3px] -mt-[3px] rounded-full"
+        {/* 6 Embedded Brain Cell Indicator Dots */}
+        <div className="flex items-center gap-1 mt-0.5">
+          {BRAIN_AGENTS.map((agent) => (
+            <span
+              key={agent.id}
+              className="w-1 h-1 rounded-full transition-all duration-200"
               style={{
-                backgroundColor: BRAIN_AGENTS[idx]?.color || '#00E5FF',
-                boxShadow: `0 0 6px ${BRAIN_AGENTS[idx]?.color || '#00E5FF'}`,
-                transformOrigin: '16px 16px'
+                backgroundColor: agent.color,
+                boxShadow: `0 0 4px ${agent.color}`
               }}
             />
           ))}
         </div>
-
-        {/* Central Animated Brain Icon */}
-        <Brain
-          size={18}
-          className="text-cyan-300 group-hover:text-white transition-colors animate-pulse drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] z-10"
-        />
       </button>
 
       {/* Floating 6 Brain Cells Popover */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
             className="absolute top-12 left-0 w-72 sm:w-80 bg-[#020617]/95 border border-cyan-500/30 rounded-2xl p-3.5 backdrop-blur-2xl shadow-[0_15px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(0,229,255,0.18)] z-50 flex flex-col gap-2.5 font-mono"
           >
             {/* Popover Header */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-1.5">
-                <Brain size={14} className="text-cyan-400" />
+                <Brain size={15} className="text-cyan-400" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
                   Neural Brain Cells (6 Agents)
                 </span>
               </div>
               <span className="text-[8px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                ALL SYNCED
+                ALL ONLINE
               </span>
             </div>
 
@@ -229,7 +207,7 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
                     key={agent.id}
                     onClick={() => triggerAgentOnline(agent)}
                     title={`Activate ${agent.name}`}
-                    className={`flex flex-col p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer active:scale-95 relative overflow-hidden group ${
+                    className={`flex flex-col p-2 rounded-xl border text-left transition-all duration-200 cursor-pointer active:scale-95 relative overflow-hidden group ${
                       isActive
                         ? `${agent.borderColor} bg-white/10 shadow-[0_0_15px_${agent.glowColor}]`
                         : 'border-white/10 bg-slate-900/60 hover:border-white/25 hover:bg-slate-900/90'
@@ -261,7 +239,7 @@ const AnimatedBrainCells = ({ onAgentOnline }) => {
                         style={{ color: agent.color }}
                       >
                         <span
-                          className="w-1.5 h-1.5 rounded-full animate-pulse"
+                          className="w-1.5 h-1.5 rounded-full"
                           style={{ backgroundColor: agent.color }}
                         />
                         ON
