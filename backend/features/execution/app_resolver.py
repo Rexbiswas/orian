@@ -116,96 +116,135 @@ class ApplicationResolver:
 
         return None
 
+    def bring_window_to_front(self, app_name: str) -> bool:
+        """Brings the target application window directly to the front of the display screen."""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            found_hwnds = []
+
+            def enum_cb(hwnd, extra):
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        title = buff.value.lower()
+                        if app_name.lower() in title:
+                            found_hwnds.append(hwnd)
+                return True
+
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+
+            if found_hwnds:
+                hwnd = found_hwnds[0]
+                user32.ShowWindow(hwnd, 9) # SW_RESTORE / SW_SHOWNORMAL
+                user32.SetForegroundWindow(hwnd)
+                return True
+        except Exception as e:
+            logger.warning(f"Window focus fault: {e}")
+        return False
+
     def launch_app(self, app_name: str) -> Dict[str, Any]:
-        """Launches application via Windows Start Menu GUI search automation (Win Key + Type + Enter), verified via psutil."""
+        """Launches application via native Windows Start GUI search & Shell window launch, bringing window to display foreground."""
         clean_target = app_name.strip()
         for verb in ["open", "launch", "start", "run", "execute"]:
             if clean_target.lower().startswith(verb + " "):
                 clean_target = clean_target[len(verb) + 1:].strip()
 
-        gui_success = False
-        pid = None
-        verified = False
+        # Track pre-existing PIDs before launching
+        pids_before = set()
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                pname = proc.info['name'].lower()
+                if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
+                    pids_before.add(proc.info['pid'])
+            except Exception:
+                continue
 
-        # 1. Attempt GUI Search Automation (Windows Key -> Type Name -> Press Enter)
+        # 1. Native C-API Windows Start Menu Search Automation
+        new_pid = None
         try:
-            import pyautogui
+            import ctypes
             import time
+            import pyautogui
             pyautogui.FAILSAFE = False
 
-            logger.info(f"Executing Windows Start Search GUI automation for '{clean_target}'...")
-            pyautogui.press('win')
-            time.sleep(0.35)
+            logger.info(f"Executing Windows C-API Start Menu GUI automation for '{clean_target}'...")
+            VK_LWIN = 0x5B
+            KEYEVENTF_KEYUP = 0x0002
+
+            # Press & Release Left Windows Key via Windows C-API
+            ctypes.windll.user32.keybd_event(VK_LWIN, 0, 0, 0)
+            time.sleep(0.1)
+            ctypes.windll.user32.keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0)
+            time.sleep(0.4)
+
+            # Type application name and press Enter
             pyautogui.write(clean_target, interval=0.04)
             time.sleep(0.45)
             pyautogui.press('enter')
             time.sleep(1.0)
 
-            # Check if process is now running
+            # Check for new PID
             for proc in psutil.process_iter(['pid', 'name']):
                 try:
                     pname = proc.info['name'].lower()
                     if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
-                        pid = proc.info['pid']
-                        verified = True
-                        gui_success = True
-                        break
+                        if proc.info['pid'] not in pids_before:
+                            new_pid = proc.info['pid']
+                            break
                 except Exception:
                     continue
         except Exception as gui_err:
-            logger.warning(f"GUI search automation fault: {gui_err}")
+            logger.warning(f"C-API GUI search automation fault: {gui_err}")
 
-        if gui_success and pid:
-            return {
-                "success": True,
-                "action": "OPEN_APPLICATION",
-                "target": app_name,
-                "pid": pid,
-                "method": "WINDOWS_START_GUI_SEARCH",
-                "message": f"Successfully pressed Windows Key, searched & launched '{clean_target}' (PID: {pid})."
-            }
-
-        # 2. Fallback to direct executable path resolution & subprocess Popen
+        # 2. Fallback to Windows Shell Display Launch (start "" "exe") if new process not spawned yet
         exe_path = self.resolve_app(app_name)
-        if not exe_path:
-            return {
-                "success": False,
-                "action": "OPEN_APPLICATION",
-                "target": app_name,
-                "error": f"Executable for '{app_name}' could not be located on Windows system.",
-                "recovery": f"Searched Start Menu GUI, Registry App Paths & PATH."
-            }
-
-        try:
-            if "discord" in exe_path.lower() and "update.exe" in exe_path.lower():
-                proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
-            else:
-                proc = subprocess.Popen([exe_path])
-
-            pid = proc.pid
+        if not new_pid and exe_path:
             try:
-                p = psutil.Process(pid)
-                verified = p.is_running()
-            except Exception:
-                verified = True
+                if "discord" in exe_path.lower() and "update.exe" in exe_path.lower():
+                    proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
+                    new_pid = proc.pid
+                else:
+                    # Open via Windows Shell to ensure visual window on display
+                    proc = subprocess.Popen(f'start "" "{exe_path}"', shell=True)
+                    time.sleep(0.5)
+                    for p in psutil.process_iter(['pid', 'name']):
+                        try:
+                            pname = p.info['name'].lower()
+                            if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
+                                if p.info['pid'] not in pids_before:
+                                    new_pid = p.info['pid']
+                                    break
+                        except Exception:
+                            continue
+            except Exception as launch_err:
+                logger.warning(f"Shell launch fault: {launch_err}")
 
+        # Bring window to foreground on display screen
+        self.bring_window_to_front(clean_target)
+
+        active_pid = new_pid or (list(pids_before)[0] if pids_before else None)
+
+        if active_pid:
             return {
                 "success": True,
                 "action": "OPEN_APPLICATION",
                 "target": app_name,
-                "executable": exe_path,
-                "pid": pid,
-                "method": "SUBPROCESS_DIRECT",
-                "message": f"Successfully launched {app_name} (PID: {pid}). Verification: {verified}."
+                "pid": active_pid,
+                "method": "WINDOWS_DISPLAY_GUI_LAUNCH",
+                "message": f"Successfully opened '{clean_target}' window on display (PID: {active_pid})."
             }
-        except Exception as e:
-            return {
-                "success": False,
-                "action": "OPEN_APPLICATION",
-                "target": app_name,
-                "error": f"Process launch failed: {str(e)}",
-                "recovery": "Check application permissions and Windows process limits."
-            }
+
+        return {
+            "success": False,
+            "action": "OPEN_APPLICATION",
+            "target": app_name,
+            "error": f"Executable for '{app_name}' could not be launched on Windows display.",
+            "recovery": "Check application permissions and Windows display session focus."
+        }
 
     def close_app(self, app_name: str) -> Dict[str, Any]:
         """Terminates matching running processes using psutil."""
