@@ -1,11 +1,10 @@
 import React from 'react';
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
-import AIModeCards from '../modes/AIModeCards';
 
 const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
   return (
-    <GlassCard isPurple={true} className="h-[400px] lg:h-auto lg:flex-1 flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
+    <GlassCard isPurple={true} className="h-full flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
       
       {/* Top Left Twin Glowing Dots */}
       
@@ -30,7 +29,7 @@ const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
       </div>
 
       {/* 3D particle core canvas wrapper */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-0.5">
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-2">
         <CircularCore 
           emotion={emotion} 
           isSpeaking={isSpeaking} 
@@ -38,9 +37,6 @@ const AICore = ({ emotion, isSpeaking, isListening, audioLevel }) => {
           audioLevel={audioLevel} 
         />
       </div>
-
-      {/* 4 Mode settings badges */}
-      <AIModeCards />
     </GlassCard>
   );
 };

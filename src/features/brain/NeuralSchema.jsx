@@ -2,13 +2,12 @@ import React from 'react';
 import { useVoice } from '../../context/VoiceContext';
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
-import AIModeCards from '../modes/AIModeCards';
 
 const NeuralSchema = ({ emotion = 'neutral' }) => {
   const { isSpeaking, audioLevel } = useVoice();
 
   return (
-    <GlassCard isPurple={true} className="w-full max-w-[420px] h-[400px] flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
+    <GlassCard isPurple={true} className="w-full max-w-[420px] h-full flex flex-col p-4 justify-between items-center relative overflow-hidden border border-purple-500/25 shadow-[0_0_20px_rgba(138,43,226,0.15)]">
       
       {/* Top Left Twin Glowing Dots */}
       <div className="absolute top-4 left-4 flex gap-1.5 z-20">
@@ -32,16 +31,13 @@ const NeuralSchema = ({ emotion = 'neutral' }) => {
       </div>
 
       {/* 3D particle core canvas wrapper */}
-      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-0.5">
+      <div className="flex-1 w-full flex items-center justify-center min-h-0 py-2">
         <CircularCore 
           emotion={emotion} 
           isSpeaking={isSpeaking} 
           audioLevel={audioLevel} 
         />
       </div>
-
-      {/* 4 Mode settings badges */}
-      <AIModeCards />
     </GlassCard>
   );
 };
