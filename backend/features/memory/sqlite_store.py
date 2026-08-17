@@ -3,6 +3,7 @@ import time
 import uuid
 from typing import List, Dict, Any, Optional
 from database.sqlite_db import db
+from database.brain_db import brain_db
 
 class SQLiteMemoryStore:
     def store_user(self, user_id: str, username: str, display_name: str, email: str = "", preferences: dict = None) -> str:
@@ -19,6 +20,11 @@ class SQLiteMemoryStore:
                 "INSERT INTO users (id, username, display_name, email, preferences_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (user_id, username, display_name, email, prefs_json, now, now)
             )
+        # Mirror to Cerebrum (User Cognition)
+        brain_db.execute("cerebrum",
+            "INSERT OR REPLACE INTO users (id, username, display_name, email, preferences_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, username, display_name, email, prefs_json, now, now)
+        )
         return user_id
 
     def store_project(self, project_id: str, name: str, path: str, description: str = "", metadata: dict = None) -> str:
@@ -35,6 +41,11 @@ class SQLiteMemoryStore:
                 "INSERT INTO projects (id, name, path, description, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (project_id, name, path, description, meta_json, now, now)
             )
+        # Mirror to Cerebrum (Project Reasoning)
+        brain_db.execute("cerebrum",
+            "INSERT OR REPLACE INTO projects (id, name, path, description, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (project_id, name, path, description, meta_json, now, now)
+        )
         return project_id
 
     def add_message(self, conversation_id: str, role: str, content: str, metadata: dict = None) -> str:
@@ -51,6 +62,16 @@ class SQLiteMemoryStore:
             db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conversation_id))
 
         db.execute(
+            "INSERT INTO messages (id, conversation_id, role, content, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (msg_id, conversation_id, role, content, meta_json, now)
+        )
+
+        # Mirror to Memory.db (Unified Cognitive Bridge)
+        brain_db.execute("memory",
+            "INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (conversation_id, f"Conversation {conversation_id[:8]}", now, now)
+        )
+        brain_db.execute("memory",
             "INSERT INTO messages (id, conversation_id, role, content, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (msg_id, conversation_id, role, content, meta_json, now)
         )
@@ -82,6 +103,11 @@ class SQLiteMemoryStore:
                 "INSERT INTO tasks (id, title, request_id, status, risk_level, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (task_id, title, request_id, status, risk_level, payload_json, now, now)
             )
+        # Mirror to Cerebellum (Task Execution & Motor Controls)
+        brain_db.execute("cerebellum",
+            "INSERT OR REPLACE INTO tasks (id, title, request_id, status, risk_level, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (task_id, title, request_id, status, risk_level, payload_json, now, now)
+        )
         return task_id
 
     def update_task_status(self, task_id: str, status: str, result: dict = None, error_message: str = None):
@@ -91,11 +117,20 @@ class SQLiteMemoryStore:
             "UPDATE tasks SET status=?, result_json=?, error_message=?, updated_at=? WHERE id=?",
             (status, result_json, error_message, now, task_id)
         )
+        brain_db.execute("cerebellum",
+            "UPDATE tasks SET status=?, result_json=?, error_message=?, updated_at=? WHERE id=?",
+            (status, result_json, error_message, now, task_id)
+        )
 
     def log_event(self, request_id: str, agent_id: str, level: str, category: str, message: str, payload: dict = None):
         now = time.time()
         payload_json = json.dumps(payload or {})
         db.execute(
+            "INSERT INTO logs (request_id, agent_id, level, category, message, payload_json, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (request_id, agent_id, level, category, message, payload_json, now)
+        )
+        # Mirror to Medulla (Autonomic System & Telemetry Logs)
+        brain_db.execute("medulla",
             "INSERT INTO logs (request_id, agent_id, level, category, message, payload_json, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (request_id, agent_id, level, category, message, payload_json, now)
         )

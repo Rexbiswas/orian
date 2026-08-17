@@ -15,6 +15,8 @@ from tools.tool_registry import tool_registry
 from memory.memory_manager import memory_manager
 from events.event_bus import event_bus, Event
 
+from database.brain_db import brain_db
+
 logger = logging.getLogger("orian.brain")
 
 class OrianBrain:
@@ -22,6 +24,25 @@ class OrianBrain:
 
     def __init__(self):
         self.brain_state = "IDLE"  # LISTENING, THINKING, RECALLING, PLANNING, CODING, EXECUTING, LEARNING, WAITING FOR PERMISSION
+        self._register_agents_to_brain_db()
+
+    def _register_agents_to_brain_db(self):
+        """Connects all cognitive agents to their anatomical brain DB region via memory.db bridge."""
+        agent_mappings = [
+            ("PerceptionAgent", "MEDULLA"),          # Sensory inputs & telemetry
+            ("MemoryAgent", "MEMORY"),              # Cognitive memory bridge
+            ("ReasoningAgent", "CEREBRUM"),          # High-level thinking & cognition
+            ("DeveloperAgent", "CEREBRUM"),          # Code reasoning & architecture
+            ("AutomationAgent", "CEREBELLUM"),       # Motor controls & task execution
+            ("LearningSecurityAgent", "MEDULLA")      # Autonomic safety & audit trail
+        ]
+        now = time.time()
+        for agent_id, region in agent_mappings:
+            brain_db.execute("memory",
+                "INSERT OR REPLACE INTO agent_connections (agent_id, assigned_region, status, last_ping) VALUES (?, ?, 'ACTIVE', ?)",
+                (agent_id, region, now)
+            )
+        logger.info("Connected all 6 Cognitive Agents to Anatomical Brain DB (Cerebrum, Cerebellum, Medulla, Memory)")
 
     async def _update_brain_state(self, new_state: str):
         self.brain_state = new_state
