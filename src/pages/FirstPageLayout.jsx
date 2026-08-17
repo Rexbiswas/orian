@@ -9,26 +9,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, AudioLines } from 'lucide-react';
 import WakeWordListener from '../mobile/WakeWordListener';
 
-// Eagerly loaded components
-import HUDContainer from '../components/HUDContainer';
-import GlassCard from '../components/GlassCard';
-import Header from '../components/Header';
-import VoiceInput from '../components/VoiceInput';
-import TextCommand from '../components/TextCommand';
-import LiveOutput from '../components/LiveOutput';
-import HUDSkeleton from '../components/HUDSkeleton';
-
-import LiveTaskDashboard from '../components/LiveTaskDashboard';
-import NotificationToastSystem from '../components/NotificationToastSystem';
+// Eagerly loaded components from features
+import { HUDContainer, GlassCard, Header, LiveOutput, HUDSkeleton, NotificationToastSystem } from '../features/ui';
+import { VoiceInput, TextCommand } from '../features/chat';
+import { LiveTaskDashboard } from '../features/tasks';
 import { useTaskOrchestrator } from '../hooks/useTaskOrchestrator';
 
-const NeuralSchema = lazy(() => import('../components/NeuralSchema'));
-const CircularCore = lazy(() => import('../components/CircularCore'));
-const EmotionDetection = lazy(() => import('../components/EmotionDetection'));
-const MemoryTimeline = lazy(() => import('../components/MemoryTimeline'));
-const AICore = lazy(() => import('../components/AICore'));
-const ActiveAutomations = lazy(() => import('../components/ActiveAutomations'));
-const SystemStatus = lazy(() => import('../components/SystemStatus'));
+// Lazy-loaded feature components
+const NeuralSchema = lazy(() => import('../features/brain/NeuralSchema'));
+const CircularCore = lazy(() => import('../features/brain/CircularCore'));
+const EmotionDetection = lazy(() => import('../features/senses/EmotionDetection'));
+const MemoryTimeline = lazy(() => import('../features/tasks/MemoryTimeline'));
+const AICore = lazy(() => import('../features/brain/AICore'));
+const ActiveAutomations = lazy(() => import('../features/tasks/ActiveAutomations'));
+const SystemStatus = lazy(() => import('../features/system/SystemStatus'));
 
 
 
