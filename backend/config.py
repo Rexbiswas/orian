@@ -1,6 +1,15 @@
 import os
 from typing import Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ImportError:
+    try:
+        from pydantic import BaseSettings
+        SettingsConfigDict = dict
+    except ImportError:
+        class BaseSettings:
+            pass
+        SettingsConfigDict = dict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Orian AI Digital Brain"

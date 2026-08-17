@@ -5,6 +5,7 @@ numpy
 requests
 python-dotenv
 pydantic
+pydantic-settings
 pyautogui
 pygetwindow
 pypdf

@@ -6,6 +6,21 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger("orian.tool_registry")
 
+class ToolResult:
+    def __init__(self, success: bool, output: str = "", error: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
+        self.success = success
+        self.output = output
+        self.error = error
+        self.metadata = metadata or {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "output": self.output,
+            "error": self.error,
+            "metadata": self.metadata
+        }
+
 class ToolDefinition(BaseModel):
     name: str
     description: str
