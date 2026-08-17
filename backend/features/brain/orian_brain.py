@@ -1,3 +1,32 @@
+import sys
+import os
+
+for site_pkg in [
+    r"C:\Users\Rishi\AppData\Local\Programs\Python\Python314\Lib\site-packages",
+    r"C:\Users\Rishi\AppData\Roaming\Python\Python314\site-packages"
+]:
+    if os.path.exists(site_pkg) and site_pkg not in sys.path:
+        sys.path.insert(0, site_pkg)
+
+_curr_dir = os.path.dirname(os.path.abspath(__file__))
+_back_dir = os.path.abspath(os.path.join(_curr_dir, "..", "..")) if "features" in _curr_dir else os.path.abspath(_curr_dir)
+_feat_dir = os.path.join(_back_dir, "features")
+
+if _back_dir not in sys.path:
+    sys.path.insert(0, _back_dir)
+if _feat_dir not in sys.path:
+    sys.path.insert(0, _feat_dir)
+
+import sys
+import os
+
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+features_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+if features_dir not in sys.path:
+    sys.path.insert(0, features_dir)
+
 import asyncio
 import logging
 import uuid
@@ -153,3 +182,13 @@ class OrianBrain:
         }
 
 orian_brain = OrianBrain()
+
+if __name__ == "__main__":
+    async def main():
+        print("=== ORIAN BRAIN INITIALIZED & CONNECTED TO BRAIN_DB ===")
+        res = await orian_brain.process_user_request("Analyze system status and test brain DB connections")
+        print(f"Status: {res['brain_state']}")
+        print(f"Request ID: {res['request_id']}")
+        print(f"Response: {res['response']}")
+
+    asyncio.run(main())
