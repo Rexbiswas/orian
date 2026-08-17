@@ -1,12 +1,10 @@
 import sys
 import os
-
-for site_pkg in [
-    r"C:\Users\Rishi\AppData\Local\Programs\Python\Python314\Lib\site-packages",
-    r"C:\Users\Rishi\AppData\Roaming\Python\Python314\site-packages"
-]:
-    if os.path.exists(site_pkg) and site_pkg not in sys.path:
-        sys.path.insert(0, site_pkg)
+import ast
+import uuid
+import subprocess
+import logging
+from typing import Dict, Any, List, Optional
 
 _curr_dir = os.path.dirname(os.path.abspath(__file__))
 _back_dir = os.path.abspath(os.path.join(_curr_dir, "..", "..")) if "features" in _curr_dir else os.path.abspath(_curr_dir)
@@ -17,15 +15,14 @@ if _back_dir not in sys.path:
 if _feat_dir not in sys.path:
     sys.path.insert(0, _feat_dir)
 
-import ast
-import subprocess
-import logging
-from typing import Dict, Any, List
+from features.security.self_programming_guard import self_programming_guard
+from features.security.audit_logger import audit_logger
+from features.security.models import RiskLevel, SecurityEventSeverity
 
 logger = logging.getLogger("orian.self_programmer")
 
 class SelfProgrammingEngine:
-    """Controlled self-programming, code analysis, AST syntax validation, Git snapshotting and automatic rollback."""
+    """Controlled self-programming, code analysis, AST syntax validation, Git snapshotting, and automatic rollback engine."""
 
     def __init__(self, workspace_dir: str = _back_dir):
         self.workspace_dir = workspace_dir
@@ -34,11 +31,11 @@ class SelfProgrammingEngine:
         """Creates a Git stash or commit checkpoint before applying any self-programming patch."""
         try:
             res = subprocess.run(["git", "stash", "create"], cwd=self.workspace_dir, capture_output=True, text=True)
-            snapshot_id = res.stdout.strip() or "git_snapshot_latest"
+            snapshot_id = res.stdout.strip() or f"git_snapshot_{uuid.uuid4().hex[:8]}"
             return snapshot_id
         except Exception as e:
-            logger.warn(f"Git snapshot warning: {e}")
-            return "snapshot_local"
+            logger.warning(f"Git snapshot warning: {e}")
+            return f"snapshot_{uuid.uuid4().hex[:8]}"
 
     def validate_ast(self, code_str: str) -> bool:
         """Validates Python code for syntax correctness before writing."""
@@ -46,14 +43,19 @@ class SelfProgrammingEngine:
             ast.parse(code_str)
             return True
         except Exception as e:
-            logger.error(f"AST Syntax Validation Fault: {e}")
+            logger.error(f"AST Syntax Parse Fault: {e}")
             return False
 
     def rollback_patch(self, snapshot_id: str) -> bool:
         """Rolls back applied changes using Git if health check or test suite fails."""
         try:
             subprocess.run(["git", "checkout", "--", "."], cwd=self.workspace_dir, check=True)
-            logger.info("Rollback executed successfully via Git.")
+            logger.info(f"Rollback executed successfully via Git (Snapshot: {snapshot_id}).")
+            audit_logger.log_security_event(
+                event_type="CODE_ROLLBACK",
+                severity=SecurityEventSeverity.WARNING,
+                message=f"Autonomous rollback triggered and completed for snapshot {snapshot_id}"
+            )
             return True
         except Exception as e:
             logger.error(f"Rollback fault: {e}")
@@ -61,8 +63,8 @@ class SelfProgrammingEngine:
 
     def run_self_improvement(self, user_request: str) -> Dict[str, Any]:
         """Analyzes codebase, runs self-diagnostics, checks syntax, and logs self-repair audit trail."""
-        from neural.self_diagnostic import self_diagnostic
-        from database.brain_db import brain_db
+        from features.neural.self_diagnostic import self_diagnostic
+        from features.database.brain_db import brain_db
 
         snapshot = self.create_git_snapshot()
         diag_res = self.run_code_check()
@@ -77,7 +79,7 @@ class SelfProgrammingEngine:
             "rollback_available": True
         }
 
-        # Log in medulla & cerebrum
+        # Log in database
         try:
             brain_db.execute("medulla", 
                 "INSERT INTO logs (request_id, module, level, event_type, message) VALUES (?, ?, ?, ?, ?)",

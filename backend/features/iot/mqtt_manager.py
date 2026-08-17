@@ -18,6 +18,7 @@ if _feat_dir not in sys.path:
 
 from features.iot.database import iot_db
 from features.iot.device_manager import device_manager
+from features.iot.iot_security import iot_security
 
 try:
     import paho.mqtt.client as mqtt
@@ -179,13 +180,8 @@ class MQTTManager:
             }
 
         topic = f"orian/devices/{device_id}/command"
-        packet = {
-            "command_id": cmd_id,
-            "device_id": device_id,
-            "command": command,
-            "payload": payload or {},
-            "timestamp": time.time()
-        }
+        packet = iot_security.build_secure_command_payload(device_id, command, payload)
+        cmd_id = packet["request_id"]
 
         # Record command in SQLite audit log
         iot_db.execute("""

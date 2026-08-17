@@ -17,7 +17,7 @@ if _back_dir not in sys.path:
 if _feat_dir not in sys.path:
     sys.path.insert(0, _feat_dir)
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 try:
     import cv2
@@ -94,12 +94,24 @@ EMOTION_LEXICON = {
     ]
 }
 
-app = FastAPI()
+from features.security import (
+    security_config, auth_engine, mfa_engine, rbac_engine,
+    risk_engine, confirmation_engine, audit_logger, security_gateway,
+    User, Role, Permission, RiskLevel,
+    RegisterRequest, LoginRequest, TokenResponse, MFASetupResponse,
+    MFAVerifyRequest, ConfirmationSubmitRequest
+)
+from features.security.middleware import (
+    SecurityHeadersMiddleware, get_current_user, require_permission, require_role, rate_limiter
+)
 
-# Enable CORS
+app = FastAPI(title="Orian AI Digital Brain", version="2.1.0")
+
+# Security Headers & CORS Middleware
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=security_config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -203,6 +215,112 @@ async def list_agents_status():
         "success": True,
         "agents": cerebellum_db.get_agent_statuses()
     }
+
+
+# ==========================================
+# ORIAN AI ENTERPRISE SECURITY & AUTH API
+# ==========================================
+
+@app.post("/api/auth/register")
+async def register_endpoint(req: RegisterRequest):
+    try:
+        user = auth_engine.register_user(
+            username=req.username,
+            password=req.password,
+            display_name=req.display_name,
+            email=req.email,
+            role=req.initial_role or Role.USER
+        )
+        return {"success": True, "user_id": user.id, "username": user.username, "role": user.role.value}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/auth/login")
+async def login_endpoint(req: LoginRequest):
+    try:
+        res = auth_engine.authenticate_user(
+            username=req.username,
+            password=req.password,
+            totp_code=req.totp_code
+        )
+        return res.model_dump()
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=401, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Authentication service error: {str(e)}")
+
+@app.post("/api/auth/logout")
+async def logout_endpoint(current_user: User = Depends(get_current_user)):
+    return {"success": True, "message": "Session terminated successfully."}
+
+@app.get("/api/auth/me")
+async def get_my_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "success": True,
+        "user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "display_name": current_user.display_name,
+            "role": current_user.role.value,
+            "mfa_enabled": current_user.mfa_enabled,
+            "permissions": rbac_engine.get_role_permissions(current_user.role)
+        }
+    }
+
+@app.post("/api/auth/mfa/setup")
+async def setup_mfa_endpoint(current_user: User = Depends(get_current_user)):
+    try:
+        setup_res = mfa_engine.generate_mfa_setup(current_user.id, current_user.username)
+        return setup_res.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MFA setup fault: {str(e)}")
+
+@app.post("/api/auth/mfa/verify")
+async def verify_mfa_endpoint(req: MFAVerifyRequest, current_user: User = Depends(get_current_user)):
+    success = mfa_engine.enable_mfa(current_user.id, req.code)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    return {"success": True, "message": "MFA enabled successfully."}
+
+@app.post("/api/auth/mfa/disable")
+async def disable_mfa_endpoint(req: MFAVerifyRequest, current_user: User = Depends(get_current_user)):
+    try:
+        mfa_engine.disable_mfa(current_user.id, req.code)
+        return {"success": True, "message": "MFA disabled."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/security/dashboard")
+async def get_security_dashboard(current_user: User = Depends(get_current_user)):
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Admin role required for security dashboard")
+
+    logs = audit_logger.query_audit_logs(limit=25)
+    events = audit_logger.query_security_events(limit=25)
+    return {
+        "success": True,
+        "security_status": "ONLINE",
+        "auth_enabled": security_config.AUTH_ENABLED,
+        "mfa_enabled": security_config.MFA_ENABLED,
+        "audit_logs": logs,
+        "security_events": events,
+        "active_roles": [r.value for r in Role]
+    }
+
+@app.post("/api/security/confirm")
+async def confirm_action_endpoint(req: ConfirmationSubmitRequest, current_user: User = Depends(get_current_user)):
+    try:
+        success = confirmation_engine.submit_confirmation(
+            ticket_id=req.ticket_id,
+            user_id=current_user.id,
+            approved=req.approved,
+            step_up_code=req.step_up_code
+        )
+        return {"success": success, "ticket_id": req.ticket_id, "approved": req.approved}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ==========================================
