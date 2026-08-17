@@ -137,11 +137,10 @@ const FirstPageLayoutContent = () => {
   useEffect(() => {
     const enableAudioAndListen = () => {
       autoListenRef.current = true;
-      startVADListening();
     };
 
-    window.addEventListener('click', enableAudioAndListen, { once: false });
-    window.addEventListener('keydown', enableAudioAndListen, { once: false });
+    window.addEventListener('click', enableAudioAndListen, { once: true });
+    window.addEventListener('keydown', enableAudioAndListen, { once: true });
 
     if (!greetedRef.current) {
       greetedRef.current = true;
@@ -156,9 +155,6 @@ const FirstPageLayoutContent = () => {
           const fallback = "Hello master, I am Orian. Neural systems established.";
           setAiOutput(fallback);
           await speak(fallback, setSpeakingState);
-        } finally {
-          autoListenRef.current = true;
-          startVADListening();
         }
       };
       greet();
@@ -168,7 +164,7 @@ const FirstPageLayoutContent = () => {
       window.removeEventListener('click', enableAudioAndListen);
       window.removeEventListener('keydown', enableAudioAndListen);
     };
-  }, [setSpeakingState, addLog, startVADListening]);
+  }, [setSpeakingState, addLog]);
 
   // Dedicated Real-Time Brain Evolution & AI Agents Sync Hook
   useEffect(() => {
