@@ -120,8 +120,11 @@ class MathEngine:
                 "formatted": f"{raw} -> {res}"
             }
 
+        # Strip English query prefixes e.g. "tell me", "what is", "calculate", "solve", "eval", "find", "please", "how much is"
+        expr_clean = re.sub(r'^(?:tell\s+me|what\s+is|calculate|solve|eval|find|please|how\s+much\s+is|\s+)+', '', raw, flags=re.IGNORECASE).strip()
+
         # Normalize caret power and square root syntax
-        expr_clean = raw.replace('^', '**').replace('×', '*').replace('÷', '/')
+        expr_clean = expr_clean.replace('^', '**').replace('×', '*').replace('÷', '/')
         expr_clean = re.sub(r'√([\d\.]+)', r'sqrt(\1)', expr_clean)
 
         try:
@@ -137,13 +140,18 @@ class MathEngine:
                 "action": "CALCULATE",
                 "expression": raw,
                 "result": val,
-                "formatted": f"{raw}\n-> {res_str}"
+                "formatted": f"{raw} -> {res_str}"
             }
         except Exception as e:
+            # Fallback to SymPy engine
+            adv_res = self.evaluate_advanced(expr_clean)
+            if adv_res.get("success"):
+                return adv_res
             return {
                 "success": False,
                 "action": "CALCULATE",
                 "expression": raw,
+                "formatted": f"Calculation Fault: {str(e)}",
                 "error": f"Evaluation error: {str(e)}",
                 "recovery": "Route to SymPy Advanced Mathematics Engine."
             }

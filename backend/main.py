@@ -136,10 +136,45 @@ async def websocket_tasks(websocket: WebSocket):
 
 @app.post("/api/tasks/dispatch")
 async def dispatch_tasks(request: MultiPromptRequest):
+    from tools.tool_router import tool_router
+    tool_res = tool_router.route_and_execute(request.prompt)
+
+    if tool_res.action != "GENERAL_CONVERSATION":
+        from planner.task_engine import Task, TaskStatus
+        task = Task(
+            command=request.prompt,
+            agent_type="desktop" if tool_res.action == "DESKTOP_ACTION" else "coding" if tool_res.action == "SELF_PROGRAMMING" else "terminal",
+            tool_name=tool_res.action.lower()
+        )
+        task.status = TaskStatus.COMPLETED if tool_res.success else TaskStatus.FAILED
+        task.progress = 100 if tool_res.success else 0
+        task.current_action = tool_res.message
+        task.result = tool_res.message
+        task.error = tool_res.error
+        task.add_log(f"ToolRouter [{tool_res.action}]: {tool_res.message}")
+        task_scheduler.tasks[task.id] = task
+        await ws_manager.broadcast({
+            "event": "TASK_UPDATED",
+            "task": task.to_dict(),
+            "all_tasks": task_scheduler.get_all_tasks()
+        })
+
+        return {
+            "success": tool_res.success,
+            "count": 1,
+            "response": tool_res.message,
+            "message": tool_res.message,
+            "action": tool_res.action,
+            "tasks": [task.to_dict()],
+            "all_tasks": task_scheduler.get_all_tasks()
+        }
+
     tasks = await task_scheduler.add_prompt(request.prompt)
     return {
         "success": True,
         "count": len(tasks),
+        "response": f"Dispatched {len(tasks)} tasks for execution.",
+        "message": f"Dispatched {len(tasks)} tasks for execution.",
         "tasks": [t.to_dict() for t in tasks],
         "all_tasks": task_scheduler.get_all_tasks()
     }

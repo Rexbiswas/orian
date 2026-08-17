@@ -276,7 +276,9 @@ const FirstPageLayoutContent = () => {
       const dispatchRes = await dispatchPrompt(textToSend);
       
       let feedback = "";
-      if (dispatchRes && dispatchRes.count > 0) {
+      if (dispatchRes && (dispatchRes.response || dispatchRes.message)) {
+        feedback = dispatchRes.response || dispatchRes.message;
+      } else if (dispatchRes && dispatchRes.count > 0) {
         feedback = `Right away. Dispatched ${dispatchRes.count} action${dispatchRes.count > 1 ? 's' : ''} in real time.`;
       } else {
         let chatRes;
