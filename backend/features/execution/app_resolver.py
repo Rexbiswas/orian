@@ -117,7 +117,55 @@ class ApplicationResolver:
         return None
 
     def launch_app(self, app_name: str) -> Dict[str, Any]:
-        """Launches application process and verifies execution state via psutil."""
+        """Launches application via Windows Start Menu GUI search automation (Win Key + Type + Enter), verified via psutil."""
+        clean_target = app_name.strip()
+        for verb in ["open", "launch", "start", "run", "execute"]:
+            if clean_target.lower().startswith(verb + " "):
+                clean_target = clean_target[len(verb) + 1:].strip()
+
+        gui_success = False
+        pid = None
+        verified = False
+
+        # 1. Attempt GUI Search Automation (Windows Key -> Type Name -> Press Enter)
+        try:
+            import pyautogui
+            import time
+            pyautogui.FAILSAFE = False
+
+            logger.info(f"Executing Windows Start Search GUI automation for '{clean_target}'...")
+            pyautogui.press('win')
+            time.sleep(0.35)
+            pyautogui.write(clean_target, interval=0.04)
+            time.sleep(0.45)
+            pyautogui.press('enter')
+            time.sleep(1.0)
+
+            # Check if process is now running
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    pname = proc.info['name'].lower()
+                    if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
+                        pid = proc.info['pid']
+                        verified = True
+                        gui_success = True
+                        break
+                except Exception:
+                    continue
+        except Exception as gui_err:
+            logger.warning(f"GUI search automation fault: {gui_err}")
+
+        if gui_success and pid:
+            return {
+                "success": True,
+                "action": "OPEN_APPLICATION",
+                "target": app_name,
+                "pid": pid,
+                "method": "WINDOWS_START_GUI_SEARCH",
+                "message": f"Successfully pressed Windows Key, searched & launched '{clean_target}' (PID: {pid})."
+            }
+
+        # 2. Fallback to direct executable path resolution & subprocess Popen
         exe_path = self.resolve_app(app_name)
         if not exe_path:
             return {
@@ -125,25 +173,21 @@ class ApplicationResolver:
                 "action": "OPEN_APPLICATION",
                 "target": app_name,
                 "error": f"Executable for '{app_name}' could not be located on Windows system.",
-                "recovery": f"Searched Registry App Paths, PATH, and Start Menu. Closest matches: {list(self.app_cache.keys())[:5]}"
+                "recovery": f"Searched Start Menu GUI, Registry App Paths & PATH."
             }
 
         try:
-            # Special case for discord update launcher
             if "discord" in exe_path.lower() and "update.exe" in exe_path.lower():
                 proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
             else:
                 proc = subprocess.Popen([exe_path])
 
             pid = proc.pid
-
-            # Verification using psutil
-            verified = False
             try:
                 p = psutil.Process(pid)
                 verified = p.is_running()
             except Exception:
-                verified = True # Popen created PID
+                verified = True
 
             return {
                 "success": True,
@@ -151,6 +195,7 @@ class ApplicationResolver:
                 "target": app_name,
                 "executable": exe_path,
                 "pid": pid,
+                "method": "SUBPROCESS_DIRECT",
                 "message": f"Successfully launched {app_name} (PID: {pid}). Verification: {verified}."
             }
         except Exception as e:
