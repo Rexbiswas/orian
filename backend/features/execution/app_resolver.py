@@ -188,10 +188,11 @@ class ApplicationResolver:
             time.sleep(1.0)
 
             # Check for new PID
+            search_terms = [clean_target.lower(), "calculatorapp", "calculator", "calc"] if "calc" in clean_target.lower() else [clean_target.lower()]
             for proc in psutil.process_iter(['pid', 'name']):
                 try:
                     pname = proc.info['name'].lower()
-                    if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
+                    if any(term in pname for term in search_terms):
                         if proc.info['pid'] not in pids_before:
                             new_pid = proc.info['pid']
                             break
@@ -200,7 +201,7 @@ class ApplicationResolver:
         except Exception as gui_err:
             logger.warning(f"C-API GUI search automation fault: {gui_err}")
 
-        # 2. Fallback to Windows Shell Display Launch (start "" "exe") if new process not spawned yet
+        # 2. Fallback to Windows Shell Display Launch if new process not spawned yet
         exe_path = self.resolve_app(app_name)
         if not new_pid and exe_path:
             try:
@@ -208,18 +209,18 @@ class ApplicationResolver:
                     proc = subprocess.Popen([exe_path, "--processStart", "Discord.exe"])
                     new_pid = proc.pid
                 else:
-                    # Open via Windows Shell to ensure visual window on display
                     proc = subprocess.Popen(f'start "" "{exe_path}"', shell=True)
-                    time.sleep(0.5)
-                    for p in psutil.process_iter(['pid', 'name']):
-                        try:
-                            pname = p.info['name'].lower()
-                            if clean_target.lower() in pname or pname.startswith(clean_target.lower()):
-                                if p.info['pid'] not in pids_before:
-                                    new_pid = p.info['pid']
-                                    break
-                        except Exception:
-                            continue
+                
+                time.sleep(0.5)
+                for p in psutil.process_iter(['pid', 'name']):
+                    try:
+                        pname = p.info['name'].lower()
+                        if any(term in pname for term in search_terms):
+                            if p.info['pid'] not in pids_before:
+                                new_pid = p.info['pid']
+                                break
+                    except Exception:
+                        continue
             except Exception as launch_err:
                 logger.warning(f"Shell launch fault: {launch_err}")
 
