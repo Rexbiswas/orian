@@ -40,9 +40,10 @@ __pycache__/
 *.pyo
 *.pyd
 *.db
+*.db-journal
+*.sqlite3
+*credentials.json
 
 # Gradle build/cache
 .gradle/
 android/gradle/wrapper/dists/
-
-npx cap open android

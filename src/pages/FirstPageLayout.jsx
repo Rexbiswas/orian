@@ -181,19 +181,20 @@ const FirstPageLayoutContent = () => {
     };
 
     // Listen to touch events for mobile touchscreens (iOS Safari, Android Chrome, WebViews)
-    window.addEventListener('touchstart', enableAudioAndListen, { once: true, passive: true });
-    window.addEventListener('touchend', enableAudioAndListen, { once: true, passive: true });
-    window.addEventListener('pointerdown', enableAudioAndListen, { once: true, passive: true });
-    window.addEventListener('click', enableAudioAndListen, { once: true });
-    window.addEventListener('keydown', enableAudioAndListen, { once: true });
+    window.addEventListener('touchstart', enableAudioAndListen, { passive: true });
+    window.addEventListener('touchend', enableAudioAndListen, { passive: true });
+    window.addEventListener('pointerdown', enableAudioAndListen, { passive: true });
+    window.addEventListener('click', enableAudioAndListen);
+    window.addEventListener('keydown', enableAudioAndListen);
 
     if (!greetedRef.current) {
       greetedRef.current = true;
 
       const greet = async () => {
         try {
+          unlockAudio();
           const res = await axios.get(`${API_BASE_URL}/api/brain/greeting`);
-          const msg = res.data.greeting || "Hello master, I am Orian. Neural link established.";
+          const msg = res.data.greeting || "Greetings master, I am Orian. Neural systems online and ready.";
           setAiOutput(msg);
           pendingGreetingRef.current = msg;
           addLog('VOICE_LINK_ESTABLISHED', 'SYS', 'SUCCESS');
@@ -207,7 +208,7 @@ const FirstPageLayoutContent = () => {
             console.warn("Initial autoplay blocked on mobile, will play upon first touch/tap");
           }
         } catch (e) {
-          const fallback = "Hello master, I am Orian. Neural systems established.";
+          const fallback = "Greetings master, I am Orian. Neural systems established.";
           setAiOutput(fallback);
           pendingGreetingRef.current = fallback;
           try {
@@ -290,10 +291,13 @@ const FirstPageLayoutContent = () => {
   const handleCtaClick = useCallback(() => {
     unlockAudio();
     playSuccessChime();
+    if (!hasSpokenGreetingRef.current && pendingGreetingRef.current) {
+      speakGreeting(pendingGreetingRef.current);
+    }
     setIsChatOpen(prev => !prev);
     const triggerBtn = document.getElementById('wake-word-permission-trigger');
     if (triggerBtn) triggerBtn.click();
-  }, []);
+  }, [speakGreeting]);
 
   // Toggle voice command recording (fallback method)
   const toggleListening = async () => {
@@ -460,27 +464,7 @@ const FirstPageLayoutContent = () => {
             <span className="text-[8px] text-slate-500 font-bold border border-slate-800 px-2 py-0.5 rounded">EVO: {evolution}</span>
           </div>
 
-          {/* Center Mobile Voice & Greeting Trigger */}
-          <div className="z-20 flex flex-col items-center gap-3 my-auto max-w-[90%] text-center">
-            <button
-              onClick={() => {
-                unlockAudio();
-                playSuccessChime();
-                speakGreeting();
-              }}
-              title="Hear Greeting Voice"
-              aria-label="Hear Greeting Voice"
-              className="flex items-center gap-2.5 px-5 py-3 rounded-full bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 backdrop-blur-xl active:scale-95 transition-all shadow-[0_0_25px_rgba(0,229,255,0.25)] hover:bg-cyan-500/25 cursor-pointer min-h-[48px] touch-target group"
-            >
-              <Volume2 size={18} className={isSpeaking ? "animate-pulse text-cyan-200" : "text-cyan-400 group-hover:scale-110 transition-transform"} />
-              <span className="text-xs font-bold tracking-wider uppercase">
-                {isSpeaking ? "Orian Speaking..." : "Play Voice Greeting"}
-              </span>
-            </button>
-            <div className="text-[10px] text-slate-400 font-mono line-clamp-3 max-w-xs bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 backdrop-blur-md">
-              {aiOutput}
-            </div>
-          </div>
+
 
           {/* Bottom Right: Circular CTA Button */}
           <div className="fixed bottom-6 right-6 z-40">

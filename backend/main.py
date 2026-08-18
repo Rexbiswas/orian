@@ -104,6 +104,16 @@ from features.security import (
 from features.security.middleware import (
     SecurityHeadersMiddleware, get_current_user, require_permission, require_role, rate_limiter
 )
+from features.protection import (
+    protection_db, activity_whitelist, focus_manager,
+    protection_risk_engine, orian_policy_engine, laptop_device_manager,
+    laptop_command_gateway, laptop_protection_service, orian_activity_monitor,
+    DeviceRegisterRequest, DeviceApproveRequest, DeviceHeartbeatRequest,
+    DeviceRevokeRequest, ActivityReportRequest, PolicyOverrideRequest,
+    FocusConfigRequest, EmergencyDisableRequest, FocusMode, ProductivityPolicy,
+    SecurityPolicy, ActivityRule, RuleType, WhitelistCategory, LaptopDevice
+)
+from laptop_agent import laptop_agent
 
 app = FastAPI(title="Orian AI Digital Brain", version="2.1.0")
 
@@ -117,9 +127,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class ProtectionWSManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.disconnect(connection)
+
+protection_ws = ProtectionWSManager()
+
+import asyncio
+
+def _protection_event_bridge(event_data: dict):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.run_coroutine_threadsafe(protection_ws.broadcast(event_data), loop)
+    except Exception:
+        pass
+
+laptop_protection_service.register_event_listener(_protection_event_bridge)
+
 @app.on_event("startup")
 async def startup_event():
     task_scheduler.start()
+    orian_activity_monitor.start_monitoring()
 
 class MultiPromptRequest(BaseModel):
     prompt: str
@@ -321,6 +365,265 @@ async def confirm_action_endpoint(req: ConfirmationSubmitRequest, current_user: 
         return {"success": success, "ticket_id": req.ticket_id, "approved": req.approved}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ==========================================
+# ORIAN AI LAPTOP PROTECTION & POLICY API
+# ==========================================
+
+# 1. Device Registration & Lifecycle
+@app.post("/api/laptop/register")
+async def register_laptop_device(req: DeviceRegisterRequest):
+    """Device sends initial pairing request."""
+    try:
+        device, secret = laptop_device_manager.initiate_pairing(
+            device_id=req.device_id,
+            device_name=req.device_name,
+            agent_version=req.agent_version
+        )
+        return {
+            "success": True,
+            "device_id": device.device_id,
+            "status": device.status.value,
+            "pairing_code": device.pairing_code,
+            "shared_secret": secret
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/laptop/approve")
+async def approve_laptop_device(req: DeviceApproveRequest, current_user: User = Depends(get_current_user)):
+    """Owner approves pairing request."""
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Owner/Admin permission required to approve laptop device.")
+    try:
+        success = laptop_device_manager.approve_device(req.device_id, req.approved, owner_id=current_user.id)
+        return {"success": success, "device_id": req.device_id, "approved": req.approved}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/laptop/heartbeat")
+async def laptop_heartbeat(req: DeviceHeartbeatRequest):
+    """Heartbeat receiver from laptop agent."""
+    success = laptop_device_manager.heartbeat(req.device_id, agent_version=req.agent_version, metadata={"active_app": req.active_app, "status": req.status})
+    return {"success": success, "device_id": req.device_id}
+
+@app.get("/api/laptop/status")
+async def get_laptop_status(device_id: Optional[str] = None):
+    """Fetches laptop device and agent status."""
+    if device_id:
+        dev = protection_db.get_device(device_id)
+        return {"success": True, "device": dev.model_dump() if dev else None}
+    devices = protection_db.list_devices()
+    return {
+        "success": True,
+        "devices": [d.model_dump() for d in devices],
+        "local_agent": laptop_agent.get_status()
+    }
+
+@app.post("/api/laptop/revoke")
+async def revoke_laptop_device(req: DeviceRevokeRequest, current_user: User = Depends(get_current_user)):
+    """Owner revokes privileged access for a laptop device."""
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Owner/Admin permission required to revoke device.")
+    success = laptop_device_manager.revoke_device(req.device_id, reason=req.reason, owner_id=current_user.id)
+    return {"success": success, "device_id": req.device_id, "revoked": True}
+
+class DirectCommandRequest(BaseModel):
+    device_id: str
+    command: str  # GET_STATUS, NOTIFY, LOCK, SLEEP
+    reason: Optional[str] = "Owner manual request"
+    ttl_seconds: Optional[float] = 15.0
+
+@app.post("/api/laptop/command")
+async def dispatch_laptop_command(req: DirectCommandRequest, current_user: User = Depends(get_current_user)):
+    """Security Gateway validates and issues cryptographically signed command to laptop agent."""
+    if req.command.upper() == "SLEEP" and not rbac_engine.is_role_at_least(current_user.role, Role.OWNER):
+        raise HTTPException(status_code=403, detail="Privileged SLEEP command requires OWNER role.")
+
+    try:
+        signed_cmd = laptop_command_gateway.generate_signed_command(
+            device_id=req.device_id,
+            command=req.command,
+            reason=req.reason or "Owner manual request",
+            ttl_seconds=req.ttl_seconds or 15.0
+        )
+        return {"success": True, "command_packet": signed_cmd.model_dump()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+class CommandAckRequest(BaseModel):
+    request_id: str
+    success: bool
+    result_message: str
+    error: Optional[str] = None
+
+@app.post("/api/laptop/command/ack")
+async def acknowledge_laptop_command(req: CommandAckRequest):
+    """Laptop agent acknowledges execution of command."""
+    laptop_command_gateway.record_acknowledgment(
+        request_id=req.request_id,
+        success=req.success,
+        result_message=req.result_message,
+        error=req.error
+    )
+    return {"success": True, "request_id": req.request_id}
+
+# 2. Activity Ingestion & Policy Enforcement
+@app.post("/api/protection/activity")
+async def report_protection_activity(req: ActivityReportRequest):
+    """Receives activity reports from Activity Monitor or Laptop Agent and runs deterministic evaluation."""
+    result = laptop_protection_service.process_activity_report(
+        device_id=req.device_id,
+        application=req.application,
+        process_name=req.process_name,
+        duration_seconds=req.duration_seconds,
+        window_title=req.window_title,
+        domain=req.domain,
+        category_hint=req.category_hint,
+        security_signal=req.security_signal
+    )
+    return {"success": True, "evaluation": result}
+
+@app.get("/api/protection/policies")
+async def list_protection_policies():
+    """Lists all productivity and security policies."""
+    prod = protection_db.list_productivity_policies()
+    sec = protection_db.list_security_policies()
+    return {
+        "success": True,
+        "productivity_policies": [p.model_dump() for p in prod],
+        "security_policies": [s.model_dump() for s in sec]
+    }
+
+@app.post("/api/protection/policies")
+async def update_productivity_policy(policy: ProductivityPolicy, current_user: User = Depends(get_current_user)):
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Admin role required to modify policies.")
+    success = protection_db.save_productivity_policy(policy)
+    return {"success": success, "policy_id": policy.policy_id}
+
+@app.post("/api/protection/override")
+async def submit_policy_override(req: PolicyOverrideRequest, current_user: User = Depends(get_current_user)):
+    """Owner overrides a pending policy violation or warning."""
+    try:
+        success = laptop_protection_service.submit_owner_override(
+            violation_id=req.violation_id,
+            user=current_user,
+            reason=req.reason,
+            password=req.password,
+            step_up_code=req.step_up_code
+        )
+        return {"success": success, "violation_id": req.violation_id, "overridden": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/protection/rules")
+async def list_activity_rules(rule_type: Optional[str] = None):
+    r_type = RuleType(rule_type.upper()) if rule_type else None
+    rules = protection_db.list_activity_rules(r_type)
+    return {"success": True, "rules": [r.model_dump() for r in rules]}
+
+@app.post("/api/protection/rules")
+async def add_activity_rule(rule: ActivityRule, current_user: User = Depends(get_current_user)):
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Admin role required to modify rules.")
+    success = protection_db.add_activity_rule(rule)
+    activity_whitelist.reload_rules()
+    return {"success": success, "rule_id": rule.rule_id}
+
+@app.delete("/api/protection/rules/{rule_id}")
+async def delete_activity_rule(rule_id: str, current_user: User = Depends(get_current_user)):
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Admin role required to delete rules.")
+    success = protection_db.delete_activity_rule(rule_id)
+    activity_whitelist.reload_rules()
+    return {"success": success, "rule_id": rule_id}
+
+@app.get("/api/protection/dashboard")
+async def get_protection_dashboard(device_id: Optional[str] = None):
+    """Full Protection metrics, status, focus mode, and today's telemetry."""
+    metrics = protection_db.query_metrics_today(device_id)
+    focus_status = focus_manager.get_status()
+    devices = protection_db.list_devices()
+    return {
+        "success": True,
+        "protection_enabled": orian_policy_engine.master_protection_enabled,
+        "automatic_sleep_enabled": orian_policy_engine.automatic_sleep_enabled,
+        "focus_mode": focus_status,
+        "metrics": metrics,
+        "active_devices_count": sum(1 for d in devices if d.status.value == "ACTIVE" and not d.revoked),
+        "total_devices_count": len(devices)
+    }
+
+@app.post("/api/protection/emergency-disable")
+async def emergency_disable_protection(req: EmergencyDisableRequest, current_user: User = Depends(get_current_user)):
+    """Emergency controls to toggle protection, sleep, or specific policies."""
+    if not rbac_engine.is_role_at_least(current_user.role, Role.OWNER):
+        raise HTTPException(status_code=403, detail="OWNER role required for emergency security controls.")
+
+    if req.disable_all_protection is not None:
+        orian_policy_engine.set_master_protection(not req.disable_all_protection)
+    if req.disable_automatic_sleep is not None:
+        orian_policy_engine.set_automatic_sleep(not req.disable_automatic_sleep)
+
+    audit_logger.log_security_event(
+        event_type="EMERGENCY_PROTECTION_TOGGLED",
+        severity=SecurityEventSeverity.HIGH,
+        user_id=current_user.id,
+        message=f"Emergency protection modified by {current_user.username}: protection={orian_policy_engine.master_protection_enabled}, sleep={orian_policy_engine.automatic_sleep_enabled}"
+    )
+
+    return {
+        "success": True,
+        "protection_enabled": orian_policy_engine.master_protection_enabled,
+        "automatic_sleep_enabled": orian_policy_engine.automatic_sleep_enabled
+    }
+
+# 3. Focus Mode API
+@app.get("/api/focus/status")
+async def get_focus_status():
+    return {"success": True, "focus": focus_manager.get_status()}
+
+@app.post("/api/focus/start")
+async def start_focus_session(req: FocusConfigRequest, current_user: User = Depends(get_current_user)):
+    session = focus_manager.start_focus(
+        mode=req.mode,
+        schedule_start=req.schedule_start or "09:00",
+        schedule_end=req.schedule_end or "18:00",
+        schedule_days=req.schedule_days,
+        user_id=current_user.id
+    )
+    return {"success": True, "focus": session.model_dump()}
+
+@app.post("/api/focus/stop")
+async def stop_focus_session(current_user: User = Depends(get_current_user)):
+    focus_manager.stop_focus(user_id=current_user.id)
+    return {"success": True, "focus": focus_manager.get_status()}
+
+@app.websocket("/ws/protection")
+async def websocket_protection_endpoint(websocket: WebSocket):
+    await protection_ws.connect(websocket)
+    try:
+        # Initial snapshot
+        await websocket.send_json({
+            "event": "PROTECTION_SNAPSHOT",
+            "dashboard": {
+                "protection_enabled": orian_policy_engine.master_protection_enabled,
+                "automatic_sleep_enabled": orian_policy_engine.automatic_sleep_enabled,
+                "focus": focus_manager.get_status(),
+                "metrics": protection_db.query_metrics_today()
+            },
+            "timestamp": time.time()
+        })
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        protection_ws.disconnect(websocket)
+    except Exception:
+        protection_ws.disconnect(websocket)
 
 
 # ==========================================

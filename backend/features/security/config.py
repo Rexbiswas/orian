@@ -48,7 +48,7 @@ class SecurityConfig(BaseModel):
     SELF_PROGRAMMING_MANDATORY_TESTS: bool = True
     SELF_PROGRAMMING_AUTO_ROLLBACK: bool = True
     
-    # 8. Protected System & Code Paths
+    # 8. Protected System & Code Paths (Self-Programming Protection)
     PROTECTED_DIRECTORIES: List[str] = [
         "security",
         "auth",
@@ -56,6 +56,10 @@ class SecurityConfig(BaseModel):
         ".env",
         "orian_storage/orian_core.db",
         "backend/features/security",
+        "backend/features/protection",
+        "backend/laptop_agent",
+        "protection",
+        "laptop_agent",
     ]
     
     # 9. Allowed CORS Origins (Never wildcards in production)
