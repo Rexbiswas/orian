@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import axios from 'axios';
+
 import { API_BASE_URL } from '../config';
 import { LogProvider, useLogs } from '../context/LogContext';
 import { VoiceProvider, useVoice } from '../context/VoiceContext';
@@ -7,7 +10,7 @@ import { speak, unlockAudio } from '../utils/voice';
 import { playSuccessChime, playMicActivate } from '../utils/sound';
 import { AudioRecorder } from '../utils/audioRecorder';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, AudioLines, Volume2 } from 'lucide-react';
+import { MessageSquare, X, AudioLines, Volume2, ShieldCheck } from 'lucide-react';
 import WakeWordListener from '../mobile/WakeWordListener';
 
 // Eagerly loaded components from features
@@ -23,10 +26,8 @@ const EmotionDetection = lazy(() => import('../features/senses/EmotionDetection'
 const MemoryTimeline = lazy(() => import('../features/tasks/MemoryTimeline'));
 const AICore = lazy(() => import('../features/brain/AICore'));
 const ActiveAutomations = lazy(() => import('../features/tasks/ActiveAutomations'));
-const SystemStatus = lazy(() => import('../features/system/SystemStatus'));
 const IoTModalDashboard = lazy(() => import('../features/iot/IoTModalDashboard'));
-
-
+const ProtectionDashboard = lazy(() => import('../features/protection/ProtectionDashboard'));
 
 const FirstPageLayoutContent = () => {
   const { logs, addLog } = useLogs();
@@ -41,7 +42,6 @@ const FirstPageLayoutContent = () => {
     spatial: { azimuth: 0, distance: 0.6 }
   });
 
-  
   const [input, setInput] = useState('');
   const [aiOutput, setAiOutput] = useState('ORIAN AI OS initialized. All neural cores synced.');
   const [evolution, setEvolution] = useState('68.4%');
@@ -49,6 +49,7 @@ const FirstPageLayoutContent = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isIoTModalOpen, setIsIoTModalOpen] = useState(false);
+  const [isProtectionModalOpen, setIsProtectionModalOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -464,10 +465,15 @@ const FirstPageLayoutContent = () => {
             <span className="text-[8px] text-slate-500 font-bold border border-slate-800 px-2 py-0.5 rounded">EVO: {evolution}</span>
           </div>
 
-
-
-          {/* Bottom Right: Circular CTA Button */}
-          <div className="fixed bottom-6 right-6 z-40">
+          {/* Bottom Right: Quick Action Buttons */}
+          <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+            <button 
+              onClick={() => setIsProtectionModalOpen(true)}
+              title="Orian Laptop Protection & Mobile Alerts"
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-cyan-950/70 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:shadow-[0_0_30px_rgba(0,229,255,0.6)] backdrop-blur-md active:scale-95 cursor-pointer transition-all duration-300 group"
+            >
+              <ShieldCheck size={22} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+            </button>
             <button 
               onClick={handleCtaClick}
               className="w-14 h-14 rounded-full flex items-center justify-center bg-gradient-to-tr from-cyan-500/30 to-blue-600/30 border border-cyan-400/40 hover:border-cyan-400/70 text-cyan-200 shadow-[0_0_20px_rgba(0,102,255,0.3)] hover:shadow-[0_0_30px_rgba(0,102,255,0.6)] backdrop-blur-md active:scale-95 cursor-pointer transition-all duration-300 group"
@@ -548,6 +554,7 @@ const FirstPageLayoutContent = () => {
         <WakeWordListener onWake={handleWake} />
         <Suspense fallback={null}>
           <IoTModalDashboard isOpen={isIoTModalOpen} onClose={() => setIsIoTModalOpen(false)} />
+          <ProtectionDashboard isOpen={isProtectionModalOpen} onClose={() => setIsProtectionModalOpen(false)} />
         </Suspense>
       </>
     );
@@ -587,16 +594,12 @@ const FirstPageLayoutContent = () => {
             
           </div>
 
-          {/* COLUMN 3: RIGHT SIDE (AUTOMATIONS / STATUS) */}
+          {/* COLUMN 3: RIGHT SIDE (AUTOMATIONS) */}
           <div className="col-span-1 md:col-span-1 lg:col-span-3 flex flex-col gap-3 lg:gap-2.5 order-3 lg:order-3 h-auto lg:h-full overflow-visible lg:overflow-hidden">
             <Suspense fallback={<HUDSkeleton title="ACTIVE AUTOMATIONS" height="200px" />}>
               <ActiveAutomations />
             </Suspense>
-            <Suspense fallback={<HUDSkeleton title="SYSTEM STATUS" height="180px" />}>
-              <SystemStatus />
-            </Suspense>
           </div>
-
 
         </div>
       </HUDContainer>
@@ -604,6 +607,7 @@ const FirstPageLayoutContent = () => {
       <WakeWordListener onWake={handleWake} />
       <Suspense fallback={null}>
         <IoTModalDashboard isOpen={isIoTModalOpen} onClose={() => setIsIoTModalOpen(false)} />
+        <ProtectionDashboard isOpen={isProtectionModalOpen} onClose={() => setIsProtectionModalOpen(false)} />
       </Suspense>
     </>
   );

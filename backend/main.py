@@ -37,6 +37,7 @@ from typing import Optional, List
 import random
 import requests
 from task_scheduler import task_scheduler, ws_manager
+from automation_engine import automation_engine
 
 
 # --- NEURAL EMOTION LEXICON (400+ Nuanced States) ---
@@ -108,10 +109,15 @@ from features.protection import (
     protection_db, activity_whitelist, focus_manager,
     protection_risk_engine, orian_policy_engine, laptop_device_manager,
     laptop_command_gateway, laptop_protection_service, orian_activity_monitor,
+    orian_notification_service,
     DeviceRegisterRequest, DeviceApproveRequest, DeviceHeartbeatRequest,
-    DeviceRevokeRequest, ActivityReportRequest, PolicyOverrideRequest,
+    DeviceRevokeRequest, MobileRegisterRequest, MobileApproveRequest,
+    MobileRevokeRequest, NotificationAcknowledgeRequest, NotificationActionRequest,
+    ActivityReportRequest, PolicyOverrideRequest,
     FocusConfigRequest, EmergencyDisableRequest, FocusMode, ProductivityPolicy,
-    SecurityPolicy, ActivityRule, RuleType, WhitelistCategory, LaptopDevice
+    SecurityPolicy, ActivityRule, RuleType, WhitelistCategory, LaptopDevice,
+    MobileDevice, NotificationEvent, MobileAlertCategory, NotificationPriority,
+    ProtectionRiskLevel
 )
 from laptop_agent import laptop_agent
 
@@ -159,10 +165,12 @@ def _protection_event_bridge(event_data: dict):
         pass
 
 laptop_protection_service.register_event_listener(_protection_event_bridge)
+orian_notification_service.register_delivery_listener(_protection_event_bridge)
 
 @app.on_event("startup")
 async def startup_event():
     task_scheduler.start()
+    automation_engine.start()
     orian_activity_monitor.start_monitoring()
 
 class MultiPromptRequest(BaseModel):
@@ -171,6 +179,9 @@ class MultiPromptRequest(BaseModel):
 class TaskActionRequest(BaseModel):
     task_id: str
 
+class AutomationActionRequest(BaseModel):
+    id: str
+
 @app.websocket("/ws/tasks")
 async def websocket_tasks(websocket: WebSocket):
     await ws_manager.connect(websocket)
@@ -178,7 +189,8 @@ async def websocket_tasks(websocket: WebSocket):
         # Send initial full state upon connection
         await websocket.send_json({
             "event": "INITIAL_STATE",
-            "all_tasks": task_scheduler.get_all_tasks()
+            "all_tasks": task_scheduler.get_all_tasks(),
+            "all_automations": automation_engine.get_all()
         })
         while True:
             data = await websocket.receive_text()
@@ -251,6 +263,31 @@ async def cancel_task_endpoint(req: TaskActionRequest):
 async def retry_task_endpoint(req: TaskActionRequest):
     success = await task_scheduler.retry_task(req.task_id)
     return {"success": success}
+
+# ==========================================
+# AUTOMATION ENGINE ENDPOINTS
+# ==========================================
+@app.get("/api/automations/list")
+async def list_automations():
+    return {
+        "success": True,
+        "automations": automation_engine.get_all()
+    }
+
+@app.post("/api/automations/trigger")
+async def trigger_automation_endpoint(req: AutomationActionRequest):
+    res = await automation_engine.trigger(req.id)
+    return res
+
+@app.post("/api/automations/pause")
+async def pause_automation_endpoint(req: AutomationActionRequest):
+    res = await automation_engine.pause(req.id)
+    return res
+
+@app.post("/api/automations/reset")
+async def reset_automation_endpoint(req: AutomationActionRequest):
+    res = await automation_engine.reset(req.id)
+    return res
 
 @app.get("/api/agents/status")
 async def list_agents_status():
@@ -542,10 +579,12 @@ async def delete_activity_rule(rule_id: str, current_user: User = Depends(get_cu
 
 @app.get("/api/protection/dashboard")
 async def get_protection_dashboard(device_id: Optional[str] = None):
-    """Full Protection metrics, status, focus mode, and today's telemetry."""
+    """Full Protection metrics, status, focus mode, today's telemetry, and recent mobile alerts."""
     metrics = protection_db.query_metrics_today(device_id)
     focus_status = focus_manager.get_status()
     devices = protection_db.list_devices()
+    mobile_devices = protection_db.list_mobile_devices()
+    recent_alerts = protection_db.list_notification_events(limit=15)
     return {
         "success": True,
         "protection_enabled": orian_policy_engine.master_protection_enabled,
@@ -553,7 +592,10 @@ async def get_protection_dashboard(device_id: Optional[str] = None):
         "focus_mode": focus_status,
         "metrics": metrics,
         "active_devices_count": sum(1 for d in devices if d.status.value == "ACTIVE" and not d.revoked),
-        "total_devices_count": len(devices)
+        "total_devices_count": len(devices),
+        "mobile_devices_count": sum(1 for m in mobile_devices if m.status.value == "ACTIVE" and not m.revoked),
+        "recent_alerts": [a.model_dump() for a in recent_alerts],
+        "mobile_devices": [m.model_dump() for m in mobile_devices]
     }
 
 @app.post("/api/protection/emergency-disable")
@@ -579,6 +621,176 @@ async def emergency_disable_protection(req: EmergencyDisableRequest, current_use
         "protection_enabled": orian_policy_engine.master_protection_enabled,
         "automatic_sleep_enabled": orian_policy_engine.automatic_sleep_enabled
     }
+
+# ==========================================
+# ORIAN MOBILE DEVICES & NOTIFICATION API
+# ==========================================
+
+@app.post("/api/mobile/register")
+async def register_mobile_device_endpoint(req: MobileRegisterRequest):
+    """Mobile phone initiates pairing handshake."""
+    try:
+        import secrets
+        pairing_code = f"PAIR-{secrets.randbelow(900000) + 100000}"
+        shared_secret = secrets.token_hex(32)
+        secret_hash = hashlib.sha256(shared_secret.encode("utf-8")).hexdigest()
+
+        mob = MobileDevice(
+            device_id=req.device_id,
+            device_name=req.device_name,
+            owner_id="owner",
+            auth_token_hash=secret_hash,
+            fcm_token=req.fcm_token,
+            push_subscription_json=req.push_subscription or {},
+            status=DeviceStatus.PAIRING,
+            pairing_code=pairing_code,
+            created_at=time.time(),
+            last_seen=time.time()
+        )
+        protection_db.register_mobile_device(mob)
+
+        # Notify system about new device pairing attempt
+        orian_notification_service.create_and_send_alert(
+            alert_type=MobileAlertCategory.NEW_DEVICE_CONNECTED,
+            title="ORIAN ALERT: NEW DEVICE",
+            device_id=req.device_name,
+            risk=ProtectionRiskLevel.MEDIUM,
+            reason=f"New mobile device '{req.device_name}' requested pairing (Code: {pairing_code})",
+            action="Monitoring (Awaiting owner approval)",
+            details={"device_id": req.device_id, "pairing_code": pairing_code},
+            force_send=True
+        )
+
+        return {
+            "success": True,
+            "device_id": mob.device_id,
+            "status": mob.status.value,
+            "pairing_code": mob.pairing_code,
+            "shared_secret": shared_secret
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/mobile/approve")
+async def approve_mobile_device_endpoint(req: MobileApproveRequest, current_user: User = Depends(get_current_user)):
+    """Owner approves pending mobile device."""
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Owner or Admin role required to approve mobile devices.")
+    try:
+        status = DeviceStatus.ACTIVE if req.approved else DeviceStatus.REVOKED
+        success = protection_db.update_mobile_device_status(req.device_id, status=status, pairing_code=None)
+        audit_logger.log_audit(
+            action="MOBILE_DEVICE_APPROVAL",
+            tool="MobileDeviceManager",
+            target=req.device_id,
+            risk=RiskLevel.HIGH,
+            result="APPROVED" if req.approved else "REJECTED",
+            user_id=current_user.id,
+            details={"device_id": req.device_id, "approved": req.approved}
+        )
+        return {"success": success, "device_id": req.device_id, "approved": req.approved}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/mobile/devices")
+async def list_mobile_devices_endpoint():
+    """Lists registered mobile devices."""
+    devices = protection_db.list_mobile_devices()
+    return {
+        "success": True,
+        "devices": [d.model_dump() for d in devices]
+    }
+
+@app.post("/api/mobile/revoke")
+async def revoke_mobile_device_endpoint(req: MobileRevokeRequest, current_user: User = Depends(get_current_user)):
+    """Owner revokes lost or stolen mobile phone access."""
+    if not rbac_engine.is_role_at_least(current_user.role, Role.ADMIN):
+        raise HTTPException(status_code=403, detail="Owner or Admin role required to revoke mobile devices.")
+    success = protection_db.revoke_mobile_device(req.device_id, reason=req.reason)
+    audit_logger.log_security_event(
+        event_type="MOBILE_DEVICE_REVOKED",
+        severity=SecurityEventSeverity.HIGH,
+        user_id=current_user.id,
+        message=f"Mobile device '{req.device_id}' revoked by {current_user.username} ({req.reason})"
+    )
+    return {"success": success, "device_id": req.device_id, "revoked": True}
+
+@app.get("/api/notifications/list")
+async def list_notifications_endpoint(
+    limit: int = 50,
+    status: Optional[str] = None,
+    min_risk: Optional[str] = None
+):
+    """Queries alert history with status and risk filters."""
+    events = protection_db.list_notification_events(limit=limit, status=status, min_risk=min_risk)
+    return {
+        "success": True,
+        "count": len(events),
+        "alerts": [e.model_dump() for e in events]
+    }
+
+@app.get("/api/notifications/{event_id}")
+async def get_notification_endpoint(event_id: str):
+    """Queries details for a specific notification event."""
+    event = protection_db.get_notification_event(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Notification event not found.")
+    deliveries = protection_db.list_notification_deliveries(event_id=event_id)
+    return {
+        "success": True,
+        "event": event.model_dump(),
+        "deliveries": [d.model_dump() for d in deliveries]
+    }
+
+@app.post("/api/notifications/{event_id}/acknowledge")
+async def acknowledge_notification_endpoint(event_id: str, current_user: Optional[User] = Depends(get_current_user)):
+    """Owner marks notification as acknowledged."""
+    username = current_user.username if current_user else "owner"
+    success = protection_db.acknowledge_notification(event_id, user_id=username)
+    if not success:
+        raise HTTPException(status_code=404, detail="Notification event not found.")
+    return {"success": True, "event_id": event_id, "acknowledged": True}
+
+@app.post("/api/notifications/action")
+async def handle_notification_action_endpoint(req: NotificationActionRequest, current_user: User = Depends(get_current_user)):
+    """Handles interactive mobile actions (Override, Disable Policy, Acknowledge) with step-up verification."""
+    try:
+        res = orian_notification_service.handle_secure_action(
+            event_id=req.event_id,
+            action_type=req.action_type,
+            user=current_user,
+            reason=req.reason,
+            password=req.password,
+            step_up_code=req.step_up_code
+        )
+        return res
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+class TestNotificationRequest(BaseModel):
+    type: MobileAlertCategory = MobileAlertCategory.PRODUCTIVITY_WARNING
+    activity: Optional[str] = "Gaming detected"
+    risk: ProtectionRiskLevel = ProtectionRiskLevel.MEDIUM
+    reason: Optional[str] = "Work Hours policy violation"
+    action: Optional[str] = "Warning issued"
+
+@app.post("/api/notifications/test")
+async def create_test_notification_endpoint(req: TestNotificationRequest):
+    """Creates a simulated alert for mobile notification validation."""
+    alert = orian_notification_service.create_and_send_alert(
+        alert_type=req.type,
+        device_id="My Windows Laptop",
+        risk=req.risk,
+        activity=req.activity,
+        reason=req.reason or "Test notification trigger",
+        action=req.action or "Simulated Alert",
+        force_send=True
+    )
+    return {"success": True, "alert": alert.model_dump() if alert else None}
 
 # 3. Focus Mode API
 @app.get("/api/focus/status")
@@ -612,7 +824,8 @@ async def websocket_protection_endpoint(websocket: WebSocket):
                 "protection_enabled": orian_policy_engine.master_protection_enabled,
                 "automatic_sleep_enabled": orian_policy_engine.automatic_sleep_enabled,
                 "focus": focus_manager.get_status(),
-                "metrics": protection_db.query_metrics_today()
+                "metrics": protection_db.query_metrics_today(),
+                "recent_alerts": [a.model_dump() for a in protection_db.list_notification_events(limit=10)]
             },
             "timestamp": time.time()
         })

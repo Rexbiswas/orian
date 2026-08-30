@@ -1,4 +1,7 @@
+'use client';
+
 import React, { useRef, useEffect } from 'react';
+
 
 // Coordinates generator inside ellipsoids representing anatomical lobes for the core brain hologram
 const generateLobePoints = (cx, cy, cz, rx, ry, rz, count, type) => {

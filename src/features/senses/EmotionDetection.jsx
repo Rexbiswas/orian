@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+
 import GlassCard from '../ui/GlassCard';
 import HumanSenses from './HumanSenses/HumanSenses';
 import { Smile, Target, BrainCircuit, BatteryLow, ShieldAlert, Cpu, Meh, Flame, Sparkles } from 'lucide-react';

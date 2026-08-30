@@ -1,4 +1,7 @@
+'use client';
+
 import React, { useEffect, useRef, useState } from 'react';
+
 import { useVoice } from '../context/VoiceContext';
 import { playMicActivate } from '../utils/sound';
 import { WakeLockManager } from './WakeLock';

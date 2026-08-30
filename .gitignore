@@ -29,8 +29,9 @@ dist-ssr
 # Electron build outputs
 dist-electron
 dist_electron
-out
-
+# Next.js build outputs
+.next/
+out/
 
 .vercel
 

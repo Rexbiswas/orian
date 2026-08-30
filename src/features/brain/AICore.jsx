@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+
 import GlassCard from '../ui/GlassCard';
 import CircularCore from './CircularCore';
 

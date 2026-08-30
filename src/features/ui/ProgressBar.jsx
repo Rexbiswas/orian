@@ -1,9 +1,10 @@
-﻿import React from 'react';
+import React from 'react';
 
 const statusBadge = (status) => {
   switch (status?.toLowerCase()) {
     case 'running':   return 'status-badge-active';
     case 'completed': return 'status-badge-online';
+    case 'paused':    return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
     default:          return 'status-badge-idle';
   }
 };

@@ -5,11 +5,12 @@ import logging
 from typing import Dict, Any, Optional, List, Callable
 from .models import (
     ActivityEvent, PolicyViolation, PolicyOverride, EnforcementAction,
-    ProtectionRiskLevel, LaptopCommand
+    ProtectionRiskLevel, LaptopCommand, MobileAlertCategory
 )
 from .database import protection_db
 from .policy_engine import orian_policy_engine, EvaluationResult
 from .command_gateway import laptop_command_gateway
+from .notification_service import orian_notification_service
 from features.security.models import User, Role, RiskLevel, SecurityEventSeverity
 from features.security.audit_logger import audit_logger
 from features.security.auth_engine import auth_engine
@@ -18,12 +19,13 @@ from features.security.mfa_engine import mfa_engine
 logger = logging.getLogger("orian.protection.laptop_service")
 
 class LaptopProtectionService:
-    """Master Coordinator orchestrating Activity Ingestion, Policy Evaluation, Warning Notifications, Grace Period Timers, Owner Override, and Secure Command Dispatch."""
+    """Master Coordinator orchestrating Activity Ingestion, Policy Evaluation, Warning Notifications, Grace Period Timers, Owner Override, Mobile Alerts, and Secure Command Dispatch."""
 
     def __init__(self):
         self.db = protection_db
         self.policy_engine = orian_policy_engine
         self.command_gateway = laptop_command_gateway
+        self.notification_service = orian_notification_service
         self.active_grace_timers: Dict[str, threading.Timer] = {}
         self.event_listeners: List[Callable[[Dict[str, Any]], None]] = []
         self._lock = threading.Lock()
@@ -37,6 +39,29 @@ class LaptopProtectionService:
                 listener(event_data)
             except Exception as e:
                 logger.warning(f"Error in protection event listener: {e}")
+
+    def _map_to_alert_category(self, eval_res: EvaluationResult, action: EnforcementAction) -> MobileAlertCategory:
+        cat = eval_res.category.upper() if eval_res.category else ""
+        if "MALWARE" in cat:
+            return MobileAlertCategory.MALWARE_ALERT
+        elif "HACKING" in cat:
+            return MobileAlertCategory.UNAUTHORIZED_HACKING_ALERT
+        elif "TAMPERING" in cat:
+            return MobileAlertCategory.SECURITY_TAMPERING
+        elif "PROTECTED_DATA" in cat or "DATA_ACCESS" in cat:
+            return MobileAlertCategory.UNAUTHORIZED_ACCESS
+        elif "BLOCKED_APP" in cat or "BLACKLIST" in cat:
+            return MobileAlertCategory.BLOCKED_APPLICATION
+        elif "BLOCKED_DOMAIN" in cat:
+            return MobileAlertCategory.BLOCKED_WEBSITE
+        elif "FOCUS_MODE" in cat or "BYPASS" in cat:
+            return MobileAlertCategory.FOCUS_MODE_VIOLATION
+        elif eval_res.security_policy:
+            return MobileAlertCategory.SECURITY_ALERT
+        elif action in [EnforcementAction.BLOCK, EnforcementAction.SLEEP]:
+            return MobileAlertCategory.PRODUCTIVITY_VIOLATION
+        else:
+            return MobileAlertCategory.PRODUCTIVITY_WARNING
 
     def process_activity_report(
         self,
@@ -94,7 +119,7 @@ class LaptopProtectionService:
             "violation_id": None
         }
 
-        # 3. Handle Enforcement & Warning System
+        # 3. Handle Enforcement, Local Warning System & Mobile Alerts
         if eval_res.action in [EnforcementAction.WARN, EnforcementAction.SLEEP, EnforcementAction.LOCK, EnforcementAction.BLOCK]:
             violation_id = f"viol_{uuid.uuid4().hex}"
             grace_seconds = eval_res.grace_period_seconds if eval_res.grace_period_seconds > 0 else 10
@@ -115,7 +140,7 @@ class LaptopProtectionService:
             self.db.record_violation(violation_obj)
             response_payload["violation_id"] = violation_id
 
-            # Emit Warning Notification Broadcast
+            # Emit Warning Notification Broadcast for Windows UI
             warning_msg = {
                 "type": "ORIAN_PROTECTION_ALERT",
                 "title": "ORIAN PROTECTION ALERT",
@@ -139,6 +164,29 @@ class LaptopProtectionService:
                 risk=RiskLevel(eval_res.risk_level.value),
                 result="WARNING_SHOWN",
                 details=warning_msg
+            )
+
+            # Generate Mobile Notification Alert for Owner
+            alert_cat = self._map_to_alert_category(eval_res, eval_res.action)
+            action_desc = "Warning issued" if eval_res.action == EnforcementAction.WARN else ("Blocked" if eval_res.action == EnforcementAction.BLOCK else "Enforcing sleep")
+            self.notification_service.create_and_send_alert(
+                alert_type=alert_cat,
+                title=f"ORIAN {'SECURITY ' if 'SECURITY' in alert_cat.value or 'MALWARE' in alert_cat.value else ''}ALERT",
+                device_id=device_id,
+                risk=eval_res.risk_level,
+                policy_id=event_obj.policy_id,
+                policy_name=eval_res.policy.name if eval_res.policy else "Security Policy",
+                activity=process_name or application,
+                reason=eval_res.reason,
+                action=action_desc,
+                details={
+                    "violation_id": violation_id,
+                    "event_id": event_id,
+                    "countdown_seconds": grace_seconds,
+                    "expires_at": expires_at,
+                    "category": eval_res.category
+                },
+                event_id=event_id
             )
 
             # Schedule Grace Period Expiration Trigger if action is privileged (SLEEP/LOCK)
@@ -185,6 +233,23 @@ class LaptopProtectionService:
                 "type": "EXECUTE_SIGNED_COMMAND",
                 "command_packet": cmd.model_dump()
             })
+
+            # Send Mobile Alert Notification: Automatic Sleep Executed
+            self.notification_service.create_and_send_alert(
+                alert_type=MobileAlertCategory.AUTOMATIC_SLEEP,
+                title="ORIAN ALERT: SLEEP EXECUTED",
+                device_id=device_id,
+                risk=ProtectionRiskLevel.HIGH,
+                policy_id=violation.policy_id,
+                reason="Repeated policy violations without owner override",
+                action="Laptop sent to sleep",
+                details={
+                    "violation_id": violation_id,
+                    "request_id": cmd.request_id,
+                    "action": action.value
+                },
+                force_send=True
+            )
 
         except Exception as e:
             logger.error(f"Failed to generate signed command upon grace expiry: {e}")

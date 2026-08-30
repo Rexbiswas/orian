@@ -1,4 +1,7 @@
+'use client';
+
 import React, { createContext, useContext, useState, useCallback } from 'react';
+
 import { getSyncedDate } from '../utils/timeSync';
 
 const LogContext = createContext();

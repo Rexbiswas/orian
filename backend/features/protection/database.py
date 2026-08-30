@@ -6,16 +6,18 @@ import logging
 from typing import Dict, List, Any, Optional
 from config import settings
 from .models import (
-    LaptopDevice, DeviceStatus, ProductivityPolicy, SecurityPolicy,
+    LaptopDevice, MobileDevice, DeviceStatus, ProductivityPolicy, SecurityPolicy,
     ActivityRule, FocusSession, ActivityEvent, PolicyViolation,
-    PolicyOverride, LaptopCommand, ProductivityCategory, SecurityCategory,
-    EnforcementAction, ProtectionRiskLevel, FocusMode, RuleType, WhitelistCategory
+    PolicyOverride, LaptopCommand, NotificationEvent, NotificationDelivery,
+    ProductivityCategory, SecurityCategory, EnforcementAction, ProtectionRiskLevel,
+    FocusMode, RuleType, WhitelistCategory, MobileAlertCategory,
+    NotificationPriority, NotificationDeliveryStatus
 )
 
 logger = logging.getLogger("orian.protection.database")
 
 class ProtectionDatabase:
-    """SQLite Database manager for Orian Laptop Protection, Policy Engine, Whitelist, Focus Mode, Violations, and Device Commands."""
+    """SQLite Database manager for Orian Laptop Protection, Policy Engine, Whitelist, Focus Mode, Violations, Mobile Notifications, and Device Commands."""
 
     def __init__(self, db_path: str = settings.SQLITE_DB_PATH):
         self.db_path = db_path
@@ -180,12 +182,86 @@ class ProtectionDatabase:
         )
         """)
 
+        # 10. Mobile Devices & Push Identity
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sec_mobile_devices (
+            device_id TEXT PRIMARY KEY,
+            device_name TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            auth_token_hash TEXT NOT NULL,
+            fcm_token TEXT,
+            push_subscription_json TEXT DEFAULT '{}',
+            status TEXT DEFAULT 'PAIRING',
+            pairing_code TEXT,
+            revoked INTEGER DEFAULT 0,
+            created_at REAL NOT NULL,
+            last_seen REAL NOT NULL,
+            metadata_json TEXT DEFAULT '{}'
+        )
+        """)
+
+        # 11. Mobile Notification Events (Idempotency Key = event_id)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sec_notification_events (
+            event_id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            device_id TEXT NOT NULL DEFAULT 'My Windows Laptop',
+            risk TEXT NOT NULL DEFAULT 'LOW',
+            policy_id TEXT,
+            policy_name TEXT,
+            activity TEXT,
+            reason TEXT NOT NULL,
+            action TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            status TEXT DEFAULT 'UNREAD',
+            acknowledged_at REAL,
+            acknowledged_by TEXT,
+            details_json TEXT DEFAULT '{}'
+        )
+        """)
+
+        # 12. Notification Deliveries Tracking
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sec_notification_deliveries (
+            delivery_id TEXT PRIMARY KEY,
+            event_id TEXT NOT NULL,
+            mobile_device_id TEXT NOT NULL,
+            channel TEXT NOT NULL DEFAULT 'WEBSOCKET',
+            status TEXT NOT NULL DEFAULT 'CREATED',
+            attempt_count INTEGER DEFAULT 0,
+            created_at REAL NOT NULL,
+            last_attempt_at REAL,
+            delivered_at REAL,
+            error_message TEXT
+        )
+        """)
+
+        # 13. Security Events Log
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sec_security_events_log (
+            event_id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            risk_level TEXT NOT NULL,
+            action_taken TEXT NOT NULL,
+            source TEXT NOT NULL,
+            details_json TEXT DEFAULT '{}',
+            timestamp REAL NOT NULL
+        )
+        """)
+
         # Performance Indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_devices_status ON sec_laptop_devices(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_activity_time ON sec_activity_events(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_violations_status ON sec_policy_violations(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_commands_dev ON sec_laptop_commands(device_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_rules_target ON sec_activity_rules(target)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_mob_status ON sec_mobile_devices(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_notif_time ON sec_notification_events(timestamp DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_notif_type ON sec_notification_events(type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_notif_status ON sec_notification_events(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sec_deliv_event ON sec_notification_deliveries(event_id)")
 
         conn.commit()
         conn.close()
@@ -883,6 +959,362 @@ class ProtectionDatabase:
         conn.close()
         return rowcount > 0
 
+    # -------------------------------------------------------------------------
+    # MOBILE DEVICES & IDENTITY CRUD
+    # -------------------------------------------------------------------------
+    def register_mobile_device(self, device: MobileDevice) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO sec_mobile_devices (
+            device_id, device_name, owner_id, auth_token_hash, fcm_token,
+            push_subscription_json, status, pairing_code, revoked, created_at, last_seen, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(device_id) DO UPDATE SET
+            device_name = excluded.device_name,
+            fcm_token = COALESCE(excluded.fcm_token, sec_mobile_devices.fcm_token),
+            push_subscription_json = excluded.push_subscription_json,
+            last_seen = excluded.last_seen,
+            metadata_json = excluded.metadata_json
+        """, (
+            device.device_id, device.device_name, device.owner_id, device.auth_token_hash,
+            device.fcm_token, json.dumps(device.push_subscription_json), device.status.value,
+            device.pairing_code, 1 if device.revoked else 0, device.created_at, device.last_seen,
+            json.dumps(device.metadata_json)
+        ))
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_mobile_device(self, device_id: str) -> Optional[MobileDevice]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM sec_mobile_devices WHERE device_id = ?", (device_id,))
+        row = cur.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return MobileDevice(
+            device_id=row["device_id"],
+            device_name=row["device_name"],
+            owner_id=row["owner_id"],
+            auth_token_hash=row["auth_token_hash"],
+            fcm_token=row["fcm_token"],
+            push_subscription_json=json.loads(row["push_subscription_json"] or "{}"),
+            status=DeviceStatus(row["status"]),
+            pairing_code=row["pairing_code"],
+            revoked=bool(row["revoked"]),
+            created_at=row["created_at"],
+            last_seen=row["last_seen"],
+            metadata_json=json.loads(row["metadata_json"] or "{}")
+        )
+
+    def list_mobile_devices(self, active_only: bool = False) -> List[MobileDevice]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        if active_only:
+            cur.execute("SELECT * FROM sec_mobile_devices WHERE status = 'ACTIVE' AND revoked = 0 ORDER BY created_at DESC")
+        else:
+            cur.execute("SELECT * FROM sec_mobile_devices ORDER BY created_at DESC")
+        rows = cur.fetchall()
+        conn.close()
+        devices = []
+        for r in rows:
+            devices.append(MobileDevice(
+                device_id=r["device_id"],
+                device_name=r["device_name"],
+                owner_id=r["owner_id"],
+                auth_token_hash=r["auth_token_hash"],
+                fcm_token=r["fcm_token"],
+                push_subscription_json=json.loads(r["push_subscription_json"] or "{}"),
+                status=DeviceStatus(r["status"]),
+                pairing_code=r["pairing_code"],
+                revoked=bool(r["revoked"]),
+                created_at=r["created_at"],
+                last_seen=r["last_seen"],
+                metadata_json=json.loads(r["metadata_json"] or "{}")
+            ))
+        return devices
+
+    def update_mobile_device_status(
+        self,
+        device_id: str,
+        status: DeviceStatus,
+        pairing_code: Optional[str] = None,
+        revoked: bool = False
+    ) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        UPDATE sec_mobile_devices
+        SET status = ?, pairing_code = ?, revoked = ?, last_seen = ?
+        WHERE device_id = ?
+        """, (status.value, pairing_code, 1 if revoked else 0, time.time(), device_id))
+        conn.commit()
+        rowcount = cur.rowcount
+        conn.close()
+        return rowcount > 0
+
+    def update_mobile_heartbeat(
+        self,
+        device_id: str,
+        fcm_token: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        now = time.time()
+        if fcm_token and metadata:
+            cur.execute("""
+            UPDATE sec_mobile_devices
+            SET last_seen = ?, fcm_token = ?, metadata_json = ?
+            WHERE device_id = ?
+            """, (now, fcm_token, json.dumps(metadata), device_id))
+        elif fcm_token:
+            cur.execute("""
+            UPDATE sec_mobile_devices
+            SET last_seen = ?, fcm_token = ?
+            WHERE device_id = ?
+            """, (now, fcm_token, device_id))
+        elif metadata:
+            cur.execute("""
+            UPDATE sec_mobile_devices
+            SET last_seen = ?, metadata_json = ?
+            WHERE device_id = ?
+            """, (now, json.dumps(metadata), device_id))
+        else:
+            cur.execute("""
+            UPDATE sec_mobile_devices
+            SET last_seen = ?
+            WHERE device_id = ?
+            """, (now, device_id))
+        conn.commit()
+        rowcount = cur.rowcount
+        conn.close()
+        return rowcount > 0
+
+    def revoke_mobile_device(self, device_id: str, reason: str = "") -> bool:
+        return self.update_mobile_device_status(device_id, DeviceStatus.REVOKED, revoked=True)
+
+    # -------------------------------------------------------------------------
+    # NOTIFICATION EVENTS CRUD & IDEMPOTENCY
+    # -------------------------------------------------------------------------
+    def is_duplicate_notification(self, event_id: str) -> bool:
+        """Idempotency check: returns True if notification event already exists."""
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM sec_notification_events WHERE event_id = ?", (event_id,))
+        exists = cur.fetchone() is not None
+        conn.close()
+        return exists
+
+    def record_notification_event(self, event: NotificationEvent) -> bool:
+        """Stores notification event using event_id as unique idempotency key."""
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO sec_notification_events (
+            event_id, type, title, device_id, risk, policy_id, policy_name,
+            activity, reason, action, timestamp, status, acknowledged_at,
+            acknowledged_by, details_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(event_id) DO NOTHING
+        """, (
+            event.event_id, event.type.value if hasattr(event.type, 'value') else str(event.type),
+            event.title, event.device_id, event.risk.value if hasattr(event.risk, 'value') else str(event.risk),
+            event.policy_id, event.policy_name, event.activity, event.reason, event.action,
+            event.timestamp, event.status, event.acknowledged_at, event.acknowledged_by,
+            json.dumps(event.details_json)
+        ))
+        conn.commit()
+        rowcount = cur.rowcount
+        conn.close()
+        return rowcount > 0
+
+    def get_notification_event(self, event_id: str) -> Optional[NotificationEvent]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM sec_notification_events WHERE event_id = ?", (event_id,))
+        r = cur.fetchone()
+        conn.close()
+        if not r:
+            return None
+        return NotificationEvent(
+            event_id=r["event_id"],
+            type=MobileAlertCategory(r["type"]) if r["type"] in MobileAlertCategory._value2member_map_ else MobileAlertCategory.SECURITY_ALERT,
+            title=r["title"],
+            device_id=r["device_id"],
+            risk=ProtectionRiskLevel(r["risk"]) if r["risk"] in ProtectionRiskLevel._value2member_map_ else ProtectionRiskLevel.LOW,
+            policy_id=r["policy_id"],
+            policy_name=r["policy_name"],
+            activity=r["activity"],
+            reason=r["reason"],
+            action=r["action"],
+            timestamp=r["timestamp"],
+            status=r["status"],
+            acknowledged_at=r["acknowledged_at"],
+            acknowledged_by=r["acknowledged_by"],
+            details_json=json.loads(r["details_json"] or "{}")
+        )
+
+    def list_notification_events(
+        self,
+        limit: int = 50,
+        status: Optional[str] = None,
+        min_risk: Optional[str] = None
+    ) -> List[NotificationEvent]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        query = "SELECT * FROM sec_notification_events"
+        conditions = []
+        params: List[Any] = []
+
+        if status:
+            conditions.append("status = ?")
+            params.append(status.upper())
+        if min_risk:
+            conditions.append("risk = ?")
+            params.append(min_risk.upper())
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        conn.close()
+
+        events = []
+        for r in rows:
+            events.append(NotificationEvent(
+                event_id=r["event_id"],
+                type=MobileAlertCategory(r["type"]) if r["type"] in MobileAlertCategory._value2member_map_ else MobileAlertCategory.SECURITY_ALERT,
+                title=r["title"],
+                device_id=r["device_id"],
+                risk=ProtectionRiskLevel(r["risk"]) if r["risk"] in ProtectionRiskLevel._value2member_map_ else ProtectionRiskLevel.LOW,
+                policy_id=r["policy_id"],
+                policy_name=r["policy_name"],
+                activity=r["activity"],
+                reason=r["reason"],
+                action=r["action"],
+                timestamp=r["timestamp"],
+                status=r["status"],
+                acknowledged_at=r["acknowledged_at"],
+                acknowledged_by=r["acknowledged_by"],
+                details_json=json.loads(r["details_json"] or "{}")
+            ))
+        return events
+
+    def acknowledge_notification(self, event_id: str, user_id: str = "owner") -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        now = time.time()
+        cur.execute("""
+        UPDATE sec_notification_events
+        SET status = 'ACKNOWLEDGED', acknowledged_at = ?, acknowledged_by = ?
+        WHERE event_id = ?
+        """, (now, user_id, event_id))
+        conn.commit()
+        rowcount = cur.rowcount
+        conn.close()
+        return rowcount > 0
+
+    # -------------------------------------------------------------------------
+    # NOTIFICATION DELIVERIES CRUD
+    # -------------------------------------------------------------------------
+    def record_notification_delivery(self, delivery: NotificationDelivery) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO sec_notification_deliveries (
+            delivery_id, event_id, mobile_device_id, channel, status,
+            attempt_count, created_at, last_attempt_at, delivered_at, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            delivery.delivery_id, delivery.event_id, delivery.mobile_device_id,
+            delivery.channel, delivery.status.value if hasattr(delivery.status, 'value') else str(delivery.status),
+            delivery.attempt_count, delivery.created_at, delivery.last_attempt_at,
+            delivery.delivered_at, delivery.error_message
+        ))
+        conn.commit()
+        conn.close()
+        return True
+
+    def update_notification_delivery_status(
+        self,
+        delivery_id: str,
+        status: NotificationDeliveryStatus,
+        error_message: Optional[str] = None
+    ) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        now = time.time()
+        delivered_at = now if status in [NotificationDeliveryStatus.DELIVERED, NotificationDeliveryStatus.READ] else None
+        cur.execute("""
+        UPDATE sec_notification_deliveries
+        SET status = ?, last_attempt_at = ?, delivered_at = COALESCE(?, delivered_at),
+            error_message = ?, attempt_count = attempt_count + 1
+        WHERE delivery_id = ?
+        """, (
+            status.value if hasattr(status, 'value') else str(status),
+            now, delivered_at, error_message, delivery_id
+        ))
+        conn.commit()
+        rowcount = cur.rowcount
+        conn.close()
+        return rowcount > 0
+
+    def list_notification_deliveries(self, event_id: Optional[str] = None, limit: int = 50) -> List[NotificationDelivery]:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        if event_id:
+            cur.execute("SELECT * FROM sec_notification_deliveries WHERE event_id = ? ORDER BY created_at DESC LIMIT ?", (event_id, limit))
+        else:
+            cur.execute("SELECT * FROM sec_notification_deliveries ORDER BY created_at DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        conn.close()
+        deliveries = []
+        for r in rows:
+            deliveries.append(NotificationDelivery(
+                delivery_id=r["delivery_id"],
+                event_id=r["event_id"],
+                mobile_device_id=r["mobile_device_id"],
+                channel=r["channel"],
+                status=NotificationDeliveryStatus(r["status"]) if r["status"] in NotificationDeliveryStatus._value2member_map_ else NotificationDeliveryStatus.CREATED,
+                attempt_count=r["attempt_count"],
+                created_at=r["created_at"],
+                last_attempt_at=r["last_attempt_at"],
+                delivered_at=r["delivered_at"],
+                error_message=r["error_message"]
+            ))
+        return deliveries
+
+    # -------------------------------------------------------------------------
+    # SECURITY EVENT LOGS
+    # -------------------------------------------------------------------------
+    def record_security_event_log(
+        self,
+        event_id: str,
+        event_type: str,
+        device_id: str,
+        risk_level: str,
+        action_taken: str,
+        source: str,
+        details: Dict[str, Any]
+    ) -> bool:
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        INSERT INTO sec_security_events_log (
+            event_id, event_type, device_id, risk_level, action_taken, source, details_json, timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (event_id, event_type, device_id, risk_level, action_taken, source, json.dumps(details), time.time()))
+        conn.commit()
+        conn.close()
+        return True
+
     def query_metrics_today(self, device_id: Optional[str] = None) -> Dict[str, Any]:
         conn = self.get_connection()
         cur = conn.cursor()
@@ -897,14 +1329,17 @@ class ProtectionDatabase:
         cur.execute(f"SELECT COUNT(*) as c FROM sec_policy_violations WHERE created_at >= ? {d_filter}", params)
         violations_count = cur.fetchone()["c"]
 
-        cur.execute(f"SELECT COUNT(*) as c FROM sec_policy_overrides WHERE timestamp >= ? {d_filter.replace('device_id', 'user_id') if False else ''}", (start_of_day,))
+        cur.execute(f"SELECT COUNT(*) as c FROM sec_policy_overrides WHERE timestamp >= ?", (start_of_day,))
         overrides_count = cur.fetchone()["c"]
 
         cur.execute(f"SELECT COUNT(*) as c FROM sec_laptop_commands WHERE timestamp >= ? AND command = 'SLEEP' AND status = 'EXECUTED' {d_filter}", params)
         sleep_actions_count = cur.fetchone()["c"]
 
+        cur.execute(f"SELECT COUNT(*) as c FROM sec_notification_events WHERE timestamp >= ? AND type LIKE '%SECURITY%' {d_filter}", params)
+        sec_notif_row = cur.fetchone()
         cur.execute(f"SELECT COUNT(*) as c FROM sec_activity_events WHERE timestamp >= ? AND category LIKE 'SECURITY%' {d_filter}", params)
-        security_events_count = cur.fetchone()["c"]
+        sec_act_row = cur.fetchone()
+        security_events_count = max(sec_notif_row["c"], sec_act_row["c"])
 
         conn.close()
 

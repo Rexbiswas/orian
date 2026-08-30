@@ -63,6 +63,45 @@ class WhitelistCategory(str, Enum):
     AUTHORIZED_SECURITY_LAB = "AUTHORIZED_SECURITY_LAB"
     AUTHORIZED_DEVELOPMENT_TOOL = "AUTHORIZED_DEVELOPMENT_TOOL"
 
+class MobileAlertCategory(str, Enum):
+    PRODUCTIVITY_WARNING = "PRODUCTIVITY_WARNING"
+    PRODUCTIVITY_VIOLATION = "PRODUCTIVITY_VIOLATION"
+    BLOCKED_APPLICATION = "BLOCKED_APPLICATION"
+    BLOCKED_WEBSITE = "BLOCKED_WEBSITE"
+    FOCUS_MODE_VIOLATION = "FOCUS_MODE_VIOLATION"
+    SECURITY_ALERT = "SECURITY_ALERT"
+    SECURITY_TAMPERING = "SECURITY_TAMPERING"
+    UNAUTHORIZED_ACCESS = "UNAUTHORIZED_ACCESS"
+    MALWARE_ALERT = "MALWARE_ALERT"
+    UNAUTHORIZED_HACKING_ALERT = "UNAUTHORIZED_HACKING_ALERT"
+    NEW_DEVICE_CONNECTED = "NEW_DEVICE_CONNECTED"
+    LAPTOP_AGENT_OFFLINE = "LAPTOP_AGENT_OFFLINE"
+    LAPTOP_AGENT_TAMPERING = "LAPTOP_AGENT_TAMPERING"
+    AUTOMATIC_SLEEP = "AUTOMATIC_SLEEP"
+    OWNER_OVERRIDE = "OWNER_OVERRIDE"
+    POLICY_CHANGED = "POLICY_CHANGED"
+
+class NotificationPriority(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+class NotificationDeliveryStatus(str, Enum):
+    CREATED = "CREATED"
+    QUEUED = "QUEUED"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    READ = "READ"
+    FAILED = "FAILED"
+
+class NotificationActionType(str, Enum):
+    VIEW_DETAILS = "VIEW_DETAILS"
+    ACKNOWLEDGE = "ACKNOWLEDGE"
+    OPEN_ORIAN = "OPEN_ORIAN"
+    DISABLE_POLICY = "DISABLE_POLICY"
+    OWNER_OVERRIDE = "OWNER_OVERRIDE"
+
 # -----------------------------------------------------------------------------
 # CORE DOMAIN ENTITIES
 # -----------------------------------------------------------------------------
@@ -72,6 +111,20 @@ class LaptopDevice(BaseModel):
     agent_version: str = "1.0.0"
     owner_id: str
     auth_token_hash: str
+    status: DeviceStatus = DeviceStatus.PAIRING
+    pairing_code: Optional[str] = None
+    revoked: bool = False
+    created_at: float = Field(default_factory=time.time)
+    last_seen: float = Field(default_factory=time.time)
+    metadata_json: Dict[str, Any] = Field(default_factory=dict)
+
+class MobileDevice(BaseModel):
+    device_id: str
+    device_name: str
+    owner_id: str
+    auth_token_hash: str
+    fcm_token: Optional[str] = None
+    push_subscription_json: Dict[str, Any] = Field(default_factory=dict)
     status: DeviceStatus = DeviceStatus.PAIRING
     pairing_code: Optional[str] = None
     revoked: bool = False
@@ -188,6 +241,35 @@ class LaptopCommandResult(BaseModel):
     error: Optional[str] = None
     timestamp: float = Field(default_factory=time.time)
 
+class NotificationEvent(BaseModel):
+    event_id: str
+    type: MobileAlertCategory
+    title: str
+    device_id: str = "My Windows Laptop"
+    risk: ProtectionRiskLevel = ProtectionRiskLevel.LOW
+    policy_id: Optional[str] = None
+    policy_name: Optional[str] = None
+    activity: Optional[str] = None
+    reason: str
+    action: str  # Warning issued, Blocked, Laptop sent to sleep, Monitoring, etc.
+    timestamp: float = Field(default_factory=time.time)
+    status: str = "UNREAD"  # UNREAD, ACKNOWLEDGED, DISMISSED
+    acknowledged_at: Optional[float] = None
+    acknowledged_by: Optional[str] = None
+    details_json: Dict[str, Any] = Field(default_factory=dict)
+
+class NotificationDelivery(BaseModel):
+    delivery_id: str
+    event_id: str
+    mobile_device_id: str
+    channel: str = "WEBSOCKET"  # WEBSOCKET, SSE, PUSH, IN_APP
+    status: NotificationDeliveryStatus = NotificationDeliveryStatus.CREATED
+    attempt_count: int = 0
+    created_at: float = Field(default_factory=time.time)
+    last_attempt_at: Optional[float] = None
+    delivered_at: Optional[float] = None
+    error_message: Optional[str] = None
+
 # -----------------------------------------------------------------------------
 # API REQUEST & RESPONSE SCHEMAS
 # -----------------------------------------------------------------------------
@@ -211,6 +293,31 @@ class DeviceHeartbeatRequest(BaseModel):
 class DeviceRevokeRequest(BaseModel):
     device_id: str
     reason: str = "Owner manual revocation"
+
+class MobileRegisterRequest(BaseModel):
+    device_id: str
+    device_name: str
+    fcm_token: Optional[str] = None
+    push_subscription: Optional[Dict[str, Any]] = None
+
+class MobileApproveRequest(BaseModel):
+    device_id: str
+    approved: bool
+    owner_password_or_token: Optional[str] = None
+
+class MobileRevokeRequest(BaseModel):
+    device_id: str
+    reason: str = "Mobile device revoked by owner"
+
+class NotificationAcknowledgeRequest(BaseModel):
+    event_id: str
+
+class NotificationActionRequest(BaseModel):
+    event_id: str
+    action_type: NotificationActionType
+    reason: Optional[str] = None
+    password: Optional[str] = None
+    step_up_code: Optional[str] = None
 
 class ActivityReportRequest(BaseModel):
     device_id: str
